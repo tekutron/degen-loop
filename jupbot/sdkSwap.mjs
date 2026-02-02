@@ -251,7 +251,12 @@ export async function runSdkSwap({
       const amountOutMin = new BN(String(quote.otherAmountThreshold || '0'));
       if (amountOutMin.lten(0)) throw new Error('quote.otherAmountThreshold missing/invalid');
 
-      const { builder } = await ray.clmm.swap({
+      const remainingAccounts = (hop.remainingAccounts || [])
+        .map((a) => (typeof a === 'string' ? a : a?.toBase58?.() || a?.pubkey?.toBase58?.() || a?.pubkey))
+        .filter(Boolean)
+        .map((s) => new PublicKey(String(s)));
+
+      const { execute } = await ray.clmm.swap({
         poolInfo,
         poolKeys,
         inputMint: new PublicKey(inputMint),
@@ -259,8 +264,8 @@ export async function runSdkSwap({
         amountOutMin,
         // optional controls (leave undefined unless we start sourcing them from compute response)
         priceLimit: undefined,
-        observationId: undefined,
-        remainingAccounts: hop.remainingAccounts,
+        observationId: poolInfo?.observationId ?? new PublicKey(poolKeys?.observationId),
+        remainingAccounts,
 
         config: { bypassAssociatedCheck: false, checkCreateATAOwner: false, associatedOnly: true },
         computeBudgetConfig: await ray.utils1216.getComputeBudgetConfig?.(),
@@ -269,11 +274,11 @@ export async function runSdkSwap({
         feePayer: owner.publicKey,
         ownerInfo: { useSOLBalance: useSOLBalanceIn, feePayer: owner.publicKey },
       });
-      const { txId } = await builder.execute({ skipPreflight: false });
+      const { txId } = await execute({ skipPreflight: false, sendAndConfirm: true });
       return [txId];
     }
 
-    const { builder } = await ray.cpmm.swap({
+    const { execute } = await ray.cpmm.swap({
       poolInfo,
       poolKeys,
       baseIn: true,
@@ -286,7 +291,7 @@ export async function runSdkSwap({
       feePayer: owner.publicKey,
     });
 
-    const { txId } = await builder.execute({ skipPreflight: false });
+    const { txId } = await execute({ skipPreflight: false, sendAndConfirm: true });
     return [txId];
   }
 
