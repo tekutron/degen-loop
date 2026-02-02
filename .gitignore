@@ -1,0 +1,14 @@
+# Node
+**/node_modules/
+
+# Local wallets / secrets
+**/wallets/
+**/*keypair*.json
+**/*secret*.json
+
+# Logs / temp
+tmp/
+*.log
+
+# OS
+.DS_Store
