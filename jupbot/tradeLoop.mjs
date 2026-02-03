@@ -120,6 +120,75 @@ function recordSellIntent({ proposalsDoc, pos, expectedSolOut, poolId, reason })
   return sell;
 }
 
+async function sleep(ms) {
+  await new Promise(r => setTimeout(r, ms));
+}
+
+async function withBackoff(fn, { tries = 6, baseMs = 300 } = {}) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      const msg = String(e?.message || e);
+      // Back off harder on 429
+      const mult = msg.includes('429') ? 4 : 1;
+      await sleep(baseMs * mult * Math.pow(2, i));
+    }
+  }
+  throw lastErr;
+}
+
+async function syncPositionsFromChain() {
+  // If no wallet configured, we can't sync.
+  const walletPath = process.env.SWAP_WALLET || './wallets/generated_keypair.json';
+  if (!fs.existsSync(walletPath)) return;
+
+  const posDoc = loadJson(POSITIONS_JSON, { updatedAt: null, positions: [] });
+  if (!(posDoc.positions || []).length) return;
+
+  const { Connection, Keypair, PublicKey } = await import('@solana/web3.js');
+  const rpcUrl = process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
+  const conn = new Connection(rpcUrl, 'confirmed');
+  const secret = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
+  const owner = Keypair.fromSecretKey(new Uint8Array(secret));
+
+  const updated = [];
+
+  for (const pos of (posDoc.positions || [])) {
+    try {
+      const mint = new PublicKey(pos.mint);
+      const total = await withBackoff(async () => {
+        const resp = await conn.getTokenAccountsByOwner(owner.publicKey, { mint }, 'confirmed');
+        let sum = 0n;
+        let decimals = pos.tokenDecimals ?? null;
+        for (const { pubkey } of resp.value) {
+          const bal = await conn.getTokenAccountBalance(pubkey, 'confirmed');
+          sum += BigInt(bal.value.amount);
+          decimals ??= bal.value.decimals;
+        }
+        pos.tokenDecimals = decimals;
+        return sum;
+      });
+
+      if (total > 0n) {
+        pos.amountInTokenRaw = total.toString();
+        pos.lastSyncAt = nowIso();
+        updated.push(pos);
+      }
+      // If total == 0, position is effectively closed (sold externally); drop it.
+    } catch {
+      // If sync fails, keep it as-is.
+      updated.push(pos);
+    }
+  }
+
+  posDoc.positions = updated;
+  posDoc.updatedAt = nowIso();
+  saveJson(POSITIONS_JSON, posDoc);
+}
+
 async function checkExits() {
   const posDoc = loadJson(POSITIONS_JSON, { updatedAt: null, positions: [] });
   const proposalsDoc = loadJson(PROPOSALS_JSON, { updatedAt: null, proposals: [] });
@@ -206,6 +275,7 @@ async function main() {
 
   for (;;) {
     try {
+      await syncPositionsFromChain();
       await checkExits();
       await scanEntries();
     } catch (e) {
