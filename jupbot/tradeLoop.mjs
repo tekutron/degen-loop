@@ -57,9 +57,41 @@ async function computeOutAmount({ inputMint, outputMint, amountInLamports, slipp
   };
 }
 
-function ensureSellProposal({ positionsDoc, proposalsDoc, pos, expectedSolOut, poolId, reason }) {
-  // Avoid duplicates: if there is already a READY_TO_SELL for this mint, do nothing.
-  const existing = (proposalsDoc.proposals || []).find(p => p.direction === 'TOKEN->SOL' && p.mint === pos.mint && (p.status === 'READY_TO_SELL' || p.status === 'EXECUTING_SELL'));
+async function autoSell({ pos, amountInTokenRaw, slippageBps }) {
+  if (process.env.AUTO_SELL !== '1') return null;
+  if (process.env.MAIN_WALLET !== '1') return null;
+
+  const env = {
+    ...process.env,
+    SWAP_WALLET: process.env.SWAP_WALLET || './wallets/generated_keypair.json',
+    INPUT_MINT: pos.mint,
+    OUTPUT_MINT: WSOL,
+    AMOUNT_LAMPORTS: String(amountInTokenRaw),
+    SLIPPAGE_BPS: String(slippageBps ?? SLIPPAGE_BPS),
+    TX_VERSION: 'LEGACY',
+    MAIN_WALLET: '1',
+  };
+
+  const { spawn } = await import('node:child_process');
+  const out = await new Promise((resolve, reject) => {
+    const p = spawn('node', ['./sdkSwap.mjs'], { stdio: ['ignore', 'pipe', 'pipe'], env });
+    let stdout = '';
+    let stderr = '';
+    p.stdout.on('data', d => stdout += d.toString());
+    p.stderr.on('data', d => stderr += d.toString());
+    p.on('close', (code) => {
+      if (code === 0) return resolve(stdout + '\n' + stderr);
+      reject(new Error(`autoSell failed (${code}): ${stderr || stdout}`));
+    });
+  });
+
+  const sigMatch = out.match(/\b[1-9A-HJ-NP-Za-km-z]{80,120}\b/);
+  return sigMatch ? sigMatch[0] : null;
+}
+
+function recordSellIntent({ proposalsDoc, pos, expectedSolOut, poolId, reason }) {
+  // Avoid duplicates: if there is already a pending sell record for this mint, do nothing.
+  const existing = (proposalsDoc.proposals || []).find(p => p.direction === 'TOKEN->SOL' && p.mint === pos.mint && (p.status === 'READY_TO_SELL' || p.status === 'SOLD' || p.status === 'SOLD_UNKNOWN_SIG'));
   if (existing) return null;
 
   const proposalId = genId();
@@ -83,9 +115,7 @@ function ensureSellProposal({ positionsDoc, proposalsDoc, pos, expectedSolOut, p
   proposalsDoc.proposals = proposalsDoc.proposals || [];
   proposalsDoc.proposals.unshift(sell);
   proposalsDoc.updatedAt = nowIso();
-  // keep file bounded
   proposalsDoc.proposals = proposalsDoc.proposals.slice(0, 120);
-
   saveJson(PROPOSALS_JSON, proposalsDoc);
   return sell;
 }
@@ -117,10 +147,32 @@ async function checkExits() {
     const tp = entrySol * (1 + (pos.takeProfitPct ?? TAKEPROFIT_PCT) / 100);
     const sl = entrySol * (1 - (pos.stopLossPct ?? STOPLOSS_PCT) / 100);
 
-    if (expectedSolOut >= tp) {
-      ensureSellProposal({ positionsDoc: posDoc, proposalsDoc, pos, expectedSolOut, poolId: q.poolId, reason: 'TAKE_PROFIT' });
-    } else if (expectedSolOut <= sl) {
-      ensureSellProposal({ positionsDoc: posDoc, proposalsDoc, pos, expectedSolOut, poolId: q.poolId, reason: 'STOP_LOSS' });
+    if (expectedSolOut >= tp || expectedSolOut <= sl) {
+      const reason = expectedSolOut >= tp ? 'TAKE_PROFIT' : 'STOP_LOSS';
+      // Record the sell signal for auditability.
+      recordSellIntent({ proposalsDoc, pos, expectedSolOut, poolId: q.poolId, reason });
+
+      // Auto-sell (no user confirmation) if enabled.
+      try {
+        const sig = await autoSell({ pos, amountInTokenRaw: pos.amountInTokenRaw, slippageBps: pos.slippageBps });
+        if (sig) {
+          // Mark proposal sold
+          const rec = (proposalsDoc.proposals || []).find(p => p.direction === 'TOKEN->SOL' && p.mint === pos.mint && p.status === 'READY_TO_SELL');
+          if (rec) {
+            rec.status = 'SOLD';
+            rec.executedAt = nowIso();
+            rec.txSig = sig;
+            proposalsDoc.updatedAt = nowIso();
+            saveJson(PROPOSALS_JSON, proposalsDoc);
+          }
+          // Remove position
+          posDoc.positions = (posDoc.positions || []).filter(pp => pp.mint !== pos.mint);
+          posDoc.updatedAt = nowIso();
+          saveJson(POSITIONS_JSON, posDoc);
+        }
+      } catch {
+        // If auto-sell fails, we leave the READY_TO_SELL record for manual intervention.
+      }
     }
   }
 }
