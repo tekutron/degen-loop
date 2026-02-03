@@ -6,7 +6,9 @@ const PROPOSALS_JSON = path.resolve('./trade_proposals.json');
 
 // DexScreener public API (no key). Docs are informal; this endpoint is widely used.
 const DEX_SEARCH_ENDPOINT = 'https://api.dexscreener.com/latest/dex/search?q=';
-const DEX_QUERIES = (process.env.DEX_QUERIES || 'SOL,pump,BONK,USDC').split(',').map(s => s.trim()).filter(Boolean);
+// Venue mapping (v1): use DexScreener search terms as a proxy for Pump.fun / Moonshot / BONK ecosystem.
+// You can override with DEX_QUERIES env.
+const DEX_QUERIES = (process.env.DEX_QUERIES || 'pump,pumpfun,moon,moonshot,bonk,solana').split(',').map(s => s.trim()).filter(Boolean);
 
 const WSOL_MINT = 'So11111111111111111111111111111111111111112';
 const RAYDIUM_COMPUTE_BASE_IN = 'https://transaction-v1.raydium.io/compute/swap-base-in';
@@ -161,10 +163,10 @@ function genId() {
 }
 
 async function main() {
-  const amountInSol = Number(process.env.AMOUNT_IN_SOL || '0.01');
+  const amountInSol = Number(process.env.AMOUNT_IN_SOL || '0.005');
   const slippageBps = Number(process.env.SLIPPAGE_BPS || '150');
-  const stopLossPct = Number(process.env.STOPLOSS_PCT || '12');
-  const takeProfitPct = Number(process.env.TAKEPROFIT_PCT || '20');
+  const stopLossPct = Number(process.env.STOPLOSS_PCT || '10');
+  const takeProfitPct = Number(process.env.TAKEPROFIT_PCT || '12');
 
   const minLiquidityUsd = Number(process.env.MIN_LIQ_USD || '15000');
   const minVol1hUsd = Number(process.env.MIN_VOL_1H_USD || '8000');

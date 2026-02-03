@@ -9,6 +9,7 @@
     "swap:sdk": "node sdkSwap.js",
     "trade:scan": "node tradeBot.mjs",
     "trade:execute": "node executeProposal.mjs",
+    "trade:sell": "node executeSellProposal.mjs",
     "trade:monitor": "node monitorExit.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
