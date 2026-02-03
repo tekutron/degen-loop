@@ -106,6 +106,49 @@ async function main() {
   p.txSig = sig;
   saveProposals(doc);
 
+  // Track position for exit monitoring (sum all token accounts by mint later; for now we store expected out as a baseline).
+  try {
+    const { Connection, Keypair, PublicKey } = await import('@solana/web3.js');
+    const fs = await import('node:fs');
+
+    const rpcUrl = process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
+    const conn = new Connection(rpcUrl, 'confirmed');
+    const secret = JSON.parse(fs.readFileSync(env.SWAP_WALLET, 'utf8'));
+    const owner = Keypair.fromSecretKey(new Uint8Array(secret));
+    const mint = new PublicKey(p.mint);
+
+    const resp = await conn.getTokenAccountsByOwner(owner.publicKey, { mint }, 'confirmed');
+    let total = 0n;
+    let decimals = null;
+    for (const { pubkey } of resp.value) {
+      const bal = await conn.getTokenAccountBalance(pubkey, 'confirmed');
+      total += BigInt(bal.value.amount);
+      decimals ??= bal.value.decimals;
+    }
+
+    const posPath = './positions.json';
+    let posDoc = { updatedAt: null, positions: [] };
+    if (fs.existsSync(posPath)) posDoc = JSON.parse(fs.readFileSync(posPath, 'utf8'));
+    posDoc.positions = (posDoc.positions || []).filter(pp => pp.mint !== p.mint);
+    posDoc.positions.unshift({
+      mint: p.mint,
+      pair: p.pair,
+      dexUrl: p.dexUrl,
+      entrySol: p.amountInSol,
+      amountInTokenRaw: total.toString(),
+      tokenDecimals: decimals,
+      slippageBps: p.slippageBps,
+      stopLossPct: p.stopLossPct,
+      takeProfitPct: p.takeProfitPct,
+      entryTxSig: sig,
+      openedAt: nowIso(),
+    });
+    posDoc.updatedAt = nowIso();
+    // bound
+    posDoc.positions = posDoc.positions.slice(0, 20);
+    fs.writeFileSync(posPath, JSON.stringify(posDoc, null, 2) + '\n');
+  } catch {}
+
   appendCsv([
     nowIso(),'EXECUTED',p.id,p.mint,p.pair,'SOL->TOKEN',p.amountInSol,'SOL',p.expectedOut || '',p.slippageBps,p.stopLossPct,p.takeProfitPct,p.dexUrl,p.raydiumPoolId || '',sig,p.status,'see stdout for details'
   ]);
