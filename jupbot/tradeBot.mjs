@@ -60,7 +60,7 @@ async function fetchJson(url) {
 }
 
 function pickCandidates(dex, opts) {
-  const { minLiquidityUsd, minVol1hUsd, maxAgeMinutes } = opts;
+  const { minLiquidityUsd, minVol1hUsd, minVol5mUsd, maxAgeMinutes, maxLiquidityUsd } = opts;
   const now = Date.now();
 
   const pairs = (dex?.pairs || []).filter(p => p?.chainId === 'solana');
@@ -90,7 +90,9 @@ function pickCandidates(dex, opts) {
     };
   })
   .filter(x => x.liquidityUsd >= minLiquidityUsd)
+  .filter(x => (maxLiquidityUsd ? x.liquidityUsd <= maxLiquidityUsd : true))
   .filter(x => x.vol1h >= minVol1hUsd)
+  .filter(x => x.vol5m >= (minVol5mUsd ?? 0))
   .filter(x => x.ageMin <= maxAgeMinutes)
   .sort((a, b) => b.score - a.score);
 
@@ -168,9 +170,16 @@ async function main() {
   const stopLossPct = Number(process.env.STOPLOSS_PCT || '10');
   const takeProfitPct = Number(process.env.TAKEPROFIT_PCT || '12');
 
-  const minLiquidityUsd = Number(process.env.MIN_LIQ_USD || '15000');
-  const minVol1hUsd = Number(process.env.MIN_VOL_1H_USD || '8000');
-  const maxAgeMinutes = Number(process.env.MAX_AGE_MIN || '10000000'); // effectively no age filter by default
+  // “Degen mode” (DEGEN=1): bias toward newer / lower-liquidity pairs with meaningful short-term volume.
+  const DEGEN = process.env.DEGEN === '1';
+
+  const minLiquidityUsd = Number(process.env.MIN_LIQ_USD || (DEGEN ? '3000' : '15000'));
+  const maxLiquidityUsd = Number(process.env.MAX_LIQ_USD || (DEGEN ? '250000' : '0')) || null;
+
+  const minVol1hUsd = Number(process.env.MIN_VOL_1H_USD || (DEGEN ? '4000' : '8000'));
+  const minVol5mUsd = Number(process.env.MIN_VOL_5M_USD || (DEGEN ? '1500' : '0'));
+
+  const maxAgeMinutes = Number(process.env.MAX_AGE_MIN || (DEGEN ? '360' : '10000000')); // effectively no age filter by default
 
   // Convert SOL → lamports.
   const amountInLamports = BigInt(Math.floor(amountInSol * 1e9));
@@ -192,7 +201,13 @@ async function main() {
     merged.push(p);
   }
   const dex = { pairs: merged };
-  const candidates = pickCandidates(dex, { minLiquidityUsd, minVol1hUsd, maxAgeMinutes }).slice(0, 20);
+  const candidates = pickCandidates(dex, {
+    minLiquidityUsd,
+    maxLiquidityUsd,
+    minVol1hUsd,
+    minVol5mUsd,
+    maxAgeMinutes,
+  }).slice(0, 20);
 
   const proposalsOut = [];
 
