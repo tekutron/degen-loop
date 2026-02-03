@@ -142,11 +142,55 @@ export async function runSdkSwap({
     });
 
     const route = quote.routePlan || [];
+
+    // Some routes are 2-hop. We support up to 2 hops by executing sequential swaps.
+    if (route.length === 2) {
+      const hop1OutMint = route[0].outputMint;
+      const hop2OutMint = outputMint;
+
+      const sumTokenRaw = async (mintStr) => {
+        const mintPk = new PublicKey(mintStr);
+        const resp = await connection.getTokenAccountsByOwner(owner.publicKey, { mint: mintPk }, 'confirmed');
+        let total = 0n;
+        for (const { pubkey } of resp.value) {
+          const bal = await connection.getTokenAccountBalance(pubkey, 'confirmed');
+          total += BigInt(bal.value.amount);
+        }
+        return total;
+      };
+
+      // 1) Execute hop1: inputMint -> hop1OutMint with fixed amountIn.
+      const before = await sumTokenRaw(hop1OutMint);
+      await runSdkSwap({
+        rpcUrl,
+        walletPath,
+        inputMint,
+        outputMint: hop1OutMint,
+        amountLamports,
+        slippageBps,
+        txVersion,
+        maxAttempts,
+      });
+      const after = await sumTokenRaw(hop1OutMint);
+      const delta = after - before;
+      if (delta <= 0n) throw new Error(`multi-hop hop1 produced no ${hop1OutMint} (delta=${delta})`);
+
+      // 2) Execute hop2: hop1OutMint -> hop2OutMint with amountIn = actual received.
+      return await runSdkSwap({
+        rpcUrl,
+        walletPath,
+        inputMint: hop1OutMint,
+        outputMint: hop2OutMint,
+        amountLamports: Number(delta),
+        slippageBps,
+        txVersion,
+        maxAttempts,
+      });
+    }
+
     if (route.length !== 1) {
-      // Route volatility: sometimes Raydium returns a 2-hop route. This runner only supports
-      // single-hop (for now), so we re-quote/retry.
       if (attempt === maxAttempts) {
-        throw new Error(`only single-hop routes supported in sdkSwap.mjs right now (got ${route.length})`);
+        throw new Error(`unsupported route length in sdkSwap.mjs (got ${route.length})`);
       }
       continue;
     }
