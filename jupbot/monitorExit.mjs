@@ -103,11 +103,16 @@ async function main() {
   // Loop until threshold hit.
   // NOTE: we do not auto-sell; we create a SELL proposal and print instructions.
   for (;;) {
+    // Some Raydium swap paths may deposit into a non-ATA token account.
+    // So we sum *all* token accounts by owner+mint.
     let tokenBalRaw = 0n;
     try {
-      const bal = await conn.getTokenAccountBalance(ata, 'confirmed');
-      tokenBalRaw = BigInt(bal.value.amount);
-      if (decimals === null || decimals === undefined) decimals = bal.value.decimals;
+      const resp = await conn.getTokenAccountsByOwner(owner.publicKey, { mint: tokenMint }, 'confirmed');
+      for (const { pubkey } of resp.value) {
+        const bal = await conn.getTokenAccountBalance(pubkey, 'confirmed');
+        tokenBalRaw += BigInt(bal.value.amount);
+        if (decimals === null || decimals === undefined) decimals = bal.value.decimals;
+      }
     } catch {
       tokenBalRaw = 0n;
     }
