@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Connection, Keypair, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync, getMint } from '@solana/spl-token';
+import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 
 const DESKTOP_CSV = '/home/j/Desktop/sol_trades.csv';
 const PROPOSALS_JSON = path.resolve('./trade_proposals.json');
@@ -89,17 +89,15 @@ async function main() {
   const owner = loadKeypair(walletPath);
   const tokenMint = new PublicKey(tokenMintStr);
 
-  const mintInfo = await getMint(conn, tokenMint);
-  const decimals = mintInfo.decimals;
-
   const ata = getAssociatedTokenAddressSync(tokenMint, owner.publicKey, false);
+  let decimals = null;
 
   const takeProfitSol = entrySol * (1 + takeProfitPct / 100);
   const stopLossSol = entrySol * (1 - stopLossPct / 100);
 
   appendCsv([
     nowIso(), 'MONITOR_START', '', tokenMint.toBase58(), '', 'TOKEN->SOL', '', '', '', slippageBps, stopLossPct, takeProfitPct, '', '', '', 'RUNNING',
-    `entrySol=${entrySol}; tpSol=${takeProfitSol.toFixed(6)}; slSol=${stopLossSol.toFixed(6)}; intervalSec=${intervalSec}; decimals=${decimals}`
+    `entrySol=${entrySol}; tpSol=${takeProfitSol.toFixed(6)}; slSol=${stopLossSol.toFixed(6)}; intervalSec=${intervalSec}`
   ]);
 
   // Loop until threshold hit.
@@ -109,6 +107,7 @@ async function main() {
     try {
       const bal = await conn.getTokenAccountBalance(ata, 'confirmed');
       tokenBalRaw = BigInt(bal.value.amount);
+      if (decimals === null || decimals === undefined) decimals = bal.value.decimals;
     } catch {
       tokenBalRaw = 0n;
     }
