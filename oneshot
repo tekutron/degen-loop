@@ -1,0 +1,133 @@
+bash
+set -e
+mkdir -p apps/web/src/app/{dashboard,markets,proposals,positions,settings}
+mkdir -p apps/web/src/{components,lib/solana,lib/raydium,lib/storage}
+mkdir -p packages/strategy-core/src/{executors,types}
+cat > package.json <<'JSON'
+{
+"name": "degen-loop",
+"private": true,
+"workspaces": ["apps/", "packages/"],
+"scripts": {
+"dev": "pnpm --filter @degen/web dev",
+"build": "pnpm --filter @degen/web build",
+"start": "pnpm --filter @degen/web start"
+}
+}
+JSON
+cat > pnpm-workspace.yaml <<'YAML'
+packages:
+
+• "apps/*"
+• "packages/*"
+YAML
+cat > README.md (http://readme.md/) <<'MD'
+degen-loop (M1)
+
+Next.js app + Solana kit scaffold for a degen trading loop UI.
+MD
+mkdir -p apps/web
+cat > apps/web/package.json <<'JSON'
+{
+"name": "@degen/web",
+"private": true,
+"scripts": {
+"dev": "next dev -p 3000",
+"build": "next build",
+"start": "next start -p 3000"
+},
+"dependencies": {
+"next": "14.2.4",
+"react": "18.2.0",
+"react-dom": "18.2.0",
+"zod": "^3.22.4"
+}
+}
+JSON
+cat > apps/web/next.config.mjs <<'JS'
+const nextConfig = { reactStrictMode: true };
+export default nextConfig;
+JS
+cat > apps/web/.env.example <<'ENV'
+NEXT_PUBLIC_SOLANA_RPC=
+NEXT_PUBLIC_CLUSTER=mainnet
+NEXT_PUBLIC_APP_NAME=Signal Mesh Degen
+ENV
+cat > apps/web/src/app/layout.tsx <<'TSX'
+export const metadata = { title: "degen-loop" };
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+return (<html lang="en"><body>{children}</body></html>);
+}
+TSX
+cat > apps/web/src/app/page.tsx <<'TSX'
+export default function Page() { return <div style={{padding:16}}>home (M1 scaffold)</div>; }
+TSX
+for p in dashboard markets proposals positions settings; do
+cat > apps/web/src/app/$p/page.tsx <<'TSX'
+export default function Page() {
+return <div style={{padding:16}}>page (M1 scaffold)</div>;
+}
+TSX
+done
+cat > apps/web/src/components/WalletConnect.tsx <<'TSX'
+'use client';
+export default function WalletConnect() { return <button>Connect Wallet (stub)</button>; }
+TSX
+cat > apps/web/src/lib/solana/kit.ts <<'TS'
+export function initSolana() {
+const rpc = process.env.NEXT_PUBLIC_SOLANA_RPC;
+if (!rpc) console.warn('NEXT_PUBLIC_SOLANA_RPC not set');
+return { rpc };
+}
+TS
+cat > apps/web/src/lib/raydium/quote.ts <<'TS'
+export type ComputeQuote = { amountOut: string; otherAmountThreshold: string };
+export async function getComputeQuote(_args: any): Promise<ComputeQuote> {
+return { amountOut: '0', otherAmountThreshold: '0' };
+}
+TS
+cat > apps/web/src/lib/storage/types.ts <<'TS'
+import { z } from 'zod';
+export const Proposal = z.object({ id: z.string(), pair: z.string(), slippageBps: z.number() });
+export const Position = z.object({ mint: z.string(), amountRaw: z.string() });
+export type TProposal = z.infer<typeof Proposal>;
+export type TPosition = z.infer<typeof Position>;
+TS
+mkdir -p packages/strategy-core
+cat > packages/strategy-core/package.json <<'JSON'
+{
+"name": "@degen/strategy-core",
+"private": true,
+"version": "0.1.0",
+"main": "dist/index.js",
+"types": "dist/index.d.ts",
+"scripts": { "build": "tsc -p tsconfig.json" },
+"devDependencies": { "typescript": "^5.4.2" }
+}
+JSON
+cat > packages/strategy-core/tsconfig.json <<'JSON'
+{
+"compilerOptions": {
+"target": "ES2020",
+"module": "ESNext",
+"declaration": true,
+"outDir": "dist",
+"strict": true,
+"moduleResolution": "Bundler",
+"skipLibCheck": true
+},
+"include": ["src/**/*"]
+}
+JSON
+cat > packages/strategy-core/src/types/index.ts <<'TS'
+export type Proposal = { id: string; pair: string; slippageBps: number };
+export type Position = { mint: string; amountRaw: string };
+TS
+cat > packages/strategy-core/src/executors/swap.ts <<'TS'
+import type { Proposal } from "../types";
+export async function executeSwap(_p: Proposal): Promise<{ tx: string }> {
+return { tx: '' };
+}
+TS
+git add .
+git commit -m "feat: M1 scaffold (Next.js + wallet stubs + solana kit init + strategy-core types)"
