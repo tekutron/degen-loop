@@ -1,0 +1,231 @@
+diff --git a/apps/web/src/lib/raydium/quote.ts b/apps/web/src/lib/raydium/quote.ts
+index 8b137891..c2b9f11a 100644
+--- a/apps/web/src/lib/raydium/quote.ts
++++ b/apps/web/src/lib/raydium/quote.ts
+@@ -1,7 +1,54 @@
+-export type ComputeQuote = { amountOut: string; otherAmountThreshold: string };
+-export async function getComputeQuote(_args: any): Promise<ComputeQuote> {
+-  return { amountOut: '0', otherAmountThreshold: '0' };
+-}
++export type ComputeQuote = {
++  amountOut: string;
++  otherAmountThreshold: string;
++  routePlan?: any[];
++};
++
++export type QuoteArgs = {
++  inputMint: string;
++  outputMint: string;
++  amount: string | number; // raw lamports
++  slippageBps?: number; // default 150
++  txVersion?: 'LEGACY' | 'V0';
++};
++
++/**
++ * Calls Raydium compute: swap-base-in
++ * Docs: https://transaction-v1.raydium.io/compute/swap-base-in
++ */
++export async function getComputeQuote({
++  inputMint,
++  outputMint,
++  amount,
++  slippageBps = 150,
++  txVersion = 'LEGACY',
++}: QuoteArgs): Promise<ComputeQuote> {
++  const params = new URLSearchParams({
++    inputMint,
++    outputMint,
++    amount: String(amount),
++    slippageBps: String(slippageBps),
++    txVersion,
++  });
++  const url = `https://transaction-v1.raydium.io/compute/swap-base-in?${params}`;
++  const res = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
++  if (!res.ok) {
++    throw new Error(`Raydium compute quote failed: ${res.status} ${res.statusText}`);
++  }
++  const data = await res.json();
++  if (!data || !data.data) {
++    throw new Error('Raydium compute: no data');
++  }
++  // Minimal fields used for YES execute
++  return {
++    amountOut: String(data.data?.amountOut ?? '0'),
++    otherAmountThreshold: String(data.data?.otherAmountThreshold ?? '0'),
++    routePlan: data.data?.routePlan ?? [],
++  };
++}
++
++/**
++ * Convenience for human-readable formatting of raw token amounts.
++ */
++export function formatLamports(raw: string | number, decimals = 6): string {
++  const n = typeof raw === 'string' ? parseFloat(raw) : raw;
++  return (n / Math.pow(10, decimals)).toFixed(Math.min(decimals, 6));
++}
+diff --git a/apps/web/src/app/proposals/page.tsx b/apps/web/src/app/proposals/page.tsx
+index 8b137891..e0a4604d 100644
+--- a/apps/web/src/app/proposals/page.tsx
++++ b/apps/web/src/app/proposals/page.tsx
+@@ -1 +1,139 @@
+-export default function Page() { return <div style={{padding:16}}>page (M1 scaffold)</div>; }
++'use client';
++
++import { useEffect, useMemo, useState } from 'react';
++import { getComputeQuote, formatLamports } from '@/src/lib/raydium/quote';
++import type { Proposal as TProposal } from '@/src/lib/storage/types';
++import { executeSwap } from '@degen/strategy-core/src/executors/swap';
++
++// Example universe (adjust to your targets)
++const EXAMPLE_PAIRS = [
++  {
++    id: 'ex-1',
++    pair: 'PUMP/SOL',
++    // NOTE: replace with real SPL mint addresses on Solana
++    inputMint: 'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn',
++    outputMint: 'So11111111111111111111111111111111111111112', // wSOL
++    tokenDecimals: 6,
++    slippageBps: 150,
++    amountRaw: 210_000_000, // 210M with 6 decimals (i.e., 210 tokens)
++  },
++];
++
++function ProposalCard({
++  p,
++  onYes,
++  quoting,
++  quote,
++  error,
++}: {
++  p: {
++    id: string;
++    pair: string;
++    inputMint: string;
++    outputMint: string;
++    tokenDecimals: number;
++    slippageBps: number;
++    amountRaw: number;
++  };
++  onYes: (id: string) => void;
++  quoting: boolean;
++  quote: { amountOut?: string; otherAmountThreshold?: string } | null;
++  error?: string | null;
++}) {
++  return (
++    <div
++      style={{
++        padding: 12,
++        marginBottom: 12,
++        border: '1px solid #e5e7eb',
++        borderRadius: 8,
++        background: '#fff',
++      }}
++    >
++      <div style={{ fontWeight: 600, marginBottom: 8 }}>{p.pair}</div>
++      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 8 }}>
++        Amount In: {formatLamports(p.amountRaw, p.tokenDecimals)} | Slippage: {p.slippageBps} bps
++      </div>
++      {quoting ? (
++        <div style={{ fontSize: 12, color: '#6b7280' }}>Getting quote…</div>
++      ) : error ? (
++        <div style={{ fontSize: 12, color: '#dc2626' }}>Quote error: {error}</div>
++      ) : quote ? (
++        <div style={{ fontSize: 12, color: '#111827' }}>
++          Est. Out: {formatLamports(quote.amountOut ?? '0', p.tokenDecimals)} | Min Out:{' '}
++          {formatLamports(quote.otherAmountThreshold ?? '0', p.tokenDecimals)}
++        </div>
++      ) : null}
++      <div style={{ marginTop: 10 }}>
++        <button
++          onClick={() => onYes(p.id)}
++          style={{
++            padding: '6px 10px',
++            borderRadius: 6,
++            background: '#111827',
++            color: '#fff',
++            border: '1px solid #111827',
++          }}
++        >
++          YES (Execute)
++        </button>
++      </div>
++    </div>
++  );
++}
++
++export default function Page() {
++  const [proposals, setProposals] = useState(EXAMPLE_PAIRS);
++  const [quoting, setQuoting] = useState<Record<string, boolean>>({});
++  const [quotes, setQuotes] = useState<Record<string, { amountOut?: string; otherAmountThreshold?: string }>>(
++    {}
++  );
++  const [errors, setErrors] = useState<Record<string, string | null>>({});
++
++  const refreshQuotes = async () => {
++    const nextQuoting: Record<string, boolean> = {};
++    const nextQuotes: typeof quotes = {};
++    const nextErrors: typeof errors = {};
++
++    for (const p of proposals) {
++      try {
++        nextQuoting[p.id] = true;
++        const q = await getComputeQuote({
++          inputMint: p.inputMint,
++          outputMint: p.outputMint,
++          amount: p.amountRaw,
++          slippageBps: p.slippageBps,
++          txVersion: 'LEGACY',
++        });
++        nextQuotes[p.id] = { amountOut: q.amountOut, otherAmountThreshold: q.otherAmountThreshold };
++        nextErrors[p.id] = null;
++      } catch (e: any) {
++        nextErrors[p.id] = e?.message ?? String(e);
++      } finally {
++        nextQuoting[p.id] = false;
++      }
++    }
++    setQuoting(nextQuoting);
++    setQuotes(nextQuotes);
++    setErrors(nextErrors);
++  };
++
++  useEffect(() => {
++    // initial quote refresh
++    refreshQuotes();
++    // periodic refresh (e.g., every 20s)
++    const t = setInterval(refreshQuotes, 20000);
++    return () => clearInterval(t);
++  }, []);
++
++  const onYes = async (id: string) => {
++    const p = proposals.find((x) => x.id === id);
++    if (!p) return;
++    try {
++      // For now, call the executor stub (no wallet wiring yet in this patch)
++      const res = await executeSwap({
++        id,
++        pair: p.pair,
++        slippageBps: p.slippageBps,
++      } as unknown as TProposal);
++      alert(`Submitted YES (stub). tx=${res.tx || '(stubbed)'}`);
++    } catch (e: any) {
++      alert(`Execute failed: ${e?.message ?? String(e)}`);
++    }
++  };
++
++  return (
++    <div style={{ padding: 16 }}>
++      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 12 }}>Proposals</div>
++      {proposals.map((p) => (
++        <ProposalCard
++          key={p.id}
++          p={p}
++          onYes={onYes}
++          quoting={!!quoting[p.id]}
++          quote={quotes[p.id] ?? null}
++          error={errors[p.id] ?? null}
++        />
++      ))}
++    </div>
++  );
++}
