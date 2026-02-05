@@ -1,20 +1,25 @@
 'use client';
 
+import { PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { useEffect, useState } from 'react';
 import { getComputeQuote, formatLamports } from '@/lib/raydium/quote';
 import type { TProposal } from '@/lib/storage/types';
+import { WalletConnect } from '@/components/WalletConnect';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { getConnection, explorerTxUrl } from '@/lib/solana/connection';
+import { buildRaydiumSwapBaseInTx } from '@/lib/raydium/tx';
 
 // Example proposal (adjust to your targets)
 const EXAMPLE_PAIRS = [
   {
     id: 'ex-1',
-    pair: 'PUMP/SOL',
-    // replace with real SPL mint addresses if needed
-    inputMint: 'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn',
-    outputMint: 'So11111111111111111111111111111111111111112', // wSOL
-    tokenDecimals: 6,
-    slippageBps: 150,
-    amountRaw: 210_000_000, // 210 with 6 decimals
+    pair: 'wSOL/USDC',
+    inputMint: 'So11111111111111111111111111111111111111112', // wSOL
+    outputMint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+    tokenDecimals: 9, // wSOL decimals
+    slippageBps: 50,
+    amountRaw: 1_000_000, // 0.001 SOL (in lamports)
   },
 ];
 
@@ -87,6 +92,9 @@ export default function Page() {
   const [quotes, setQuotes] = useState<Record<string, { amountOut?: string; otherAmountThreshold?: string }>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
 
+const { publicKey, sendTransaction } = useWallet();
+
+
   const refreshQuotes = async () => {
     const nextQuoting: Record<string, boolean> = {};
     const nextQuotes: typeof quotes = {};
@@ -121,20 +129,53 @@ export default function Page() {
     return () => clearInterval(t);
   }, []);
 
-  const onYes = async (id: string) => {
-    const p = proposals.find((x) => x.id === id);
-    if (!p) return;
-          const payload: TProposal = {
-        id,
-        pair: p.pair,
-        slippageBps: p.slippageBps,
-      };
-      alert(`YES (stub). Would execute:$ {JSON.stringify(payload)}`);
-      };
+const onYes = async (id: string) => {
+  const p = proposals.find((x) => x.id === id);
+  if (!p) return;
+
+  if (!publicKey) {
+    alert('Connect Phantom first.');
+    return;
+  }
+
+  // Safety confirm
+  const ok = confirm(`Execute swap via Raydium?\nPair: ${p.pair}\nAmountRaw: ${p.amountRaw}`);
+
+if (!ok) return;
+
+  try {
+    const conn = getConnection();
+
+const owner = publicKey; // wallet pubkey
+const inputMint = new PublicKey(p.inputMint);
+const outputMint = new PublicKey(p.outputMint);
+
+const inputAccount = getAssociatedTokenAddressSync(inputMint, owner);
+const outputAccount = getAssociatedTokenAddressSync(outputMint, owner);
+
+    const built = await buildRaydiumSwapBaseInTx({
+      inputMint: p.inputMint,
+      outputMint: p.outputMint,
+      amount: String(p.amountRaw),
+      slippageBps: p.slippageBps,
+      txVersion: 'V0',
+      wallet: publicKey.toBase58(),
+inputAccount: inputAccount.toBase58(),
+  outputAccount: outputAccount.toBase58(),
+    });
+
+    const sig = await sendTransaction(built.transaction as any, conn);
+    alert(`Sent! ${sig}\n${explorerTxUrl(sig)}`);
+  } catch (e: any) {
+    alert(`Swap failed: ${e?.message ?? String(e)}`);
+  }
+};
+
 
   return (
     <div style={{ padding: 16 }}>
-      <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 12 }}>Proposals</div>
+<WalletConnect />      
+<div style={{ fontWeight: 700, fontSize: 18, marginBottom: 12 }}>Proposals</div>
       {proposals.map((p) => (
         <ProposalCard
           key={p.id}
