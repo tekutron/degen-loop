@@ -42,14 +42,12 @@ export async function buildRaydiumSwapBaseInTx(args: BuildSwapTxArgs): Promise<{
   const txUrl = `https://transaction-v1.raydium.io/transaction/swap-base-in`;
   const txBody = {
     computeUnitPriceMicroLamports: String(computeData.computeUnitPriceMicroLamports ?? 0),
-    swapResponse: computeData,
+    swapResponse: computeJson,
     txVersion,
     wallet: args.wallet,
-
   inputAccount: args.inputAccount,
   outputAccount: args.outputAccount,
-
-    wrapSol: false,
+    wrapSol: true,
     unwrapSol: false,
   };
 
