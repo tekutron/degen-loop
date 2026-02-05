@@ -9,6 +9,7 @@ import { getConnection, explorerTxUrl } from '@/lib/solana/connection';
 import { buildRaydiumSwapBaseInTx } from '@/lib/raydium/tx';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
+import { getBirdeyeToken } from '@/lib/birdeye';
 
 type Proposal = {
   id: string;
@@ -27,6 +28,7 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [quotes, setQuotes] = useState<Record<string, { amountOut?: string; otherAmountThreshold?: string }>>({});
+  const [market, setMarket] = useState<Record<string, { price?: number; liquidity?: number; v24hUSD?: number; symbol?: string }>>({});
 
   async function fetchProposals() {
     try {
@@ -49,6 +51,7 @@ export default function Page() {
     let cancelled = false;
     const refresh = async () => {
       const next: typeof quotes = {};
+      const mk: typeof market = {};
       for (const p of proposals) {
         try {
           const q = await getComputeQuote({
@@ -60,8 +63,16 @@ export default function Page() {
           });
           next[p.id] = { amountOut: q.amountOut, otherAmountThreshold: q.otherAmountThreshold };
         } catch {}
+        try {
+          // Prefer output token stats
+          const m = await getBirdeyeToken(p.outputMint);
+          if (m) mk[p.id] = m;
+        } catch {}
       }
-      if (!cancelled) setQuotes(next);
+      if (!cancelled) {
+        setQuotes(next);
+        setMarket(mk);
+      }
     };
     if (proposals.length) {
       refresh();
@@ -155,6 +166,13 @@ export default function Page() {
               <div style={{ fontSize: 12, marginTop: 6 }}>
                 est out: {formatLamports(quotes[p.id].amountOut ?? '0', 6)} | min out:{' '}
                 {formatLamports(quotes[p.id].otherAmountThreshold ?? '0', 6)}
+              </div>
+            )}
+            {market[p.id] && (
+              <div style={{ fontSize: 12, marginTop: 6, color: '#111827' }}>
+                price: ${market[p.id]?.price?.toFixed(6) ?? '—'} | liq: $
+                {market[p.id]?.liquidity ? Math.round(market[p.id]!.liquidity!).toLocaleString() : '—'} | vol24h: $
+                {market[p.id]?.v24hUSD ? Math.round(market[p.id]!.v24hUSD!).toLocaleString() : '—'}
               </div>
             )}
             <div style={{ marginTop: 10 }}>
