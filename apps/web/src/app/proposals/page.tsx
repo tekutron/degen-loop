@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getComputeQuote, formatLamports } from '../../lib/raydium/quote';
-import type { TProposal } from '../../lib/storage/types';
+import { getComputeQuote, formatLamports } from '@/lib/raydium/quote';
+import type { TProposal } from '@/lib/storage/types';
 
 // Example proposal (adjust to your targets)
 const EXAMPLE_PAIRS = [
