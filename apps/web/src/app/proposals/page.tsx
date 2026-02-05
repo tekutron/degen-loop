@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getComputeQuote, formatLamports } from '@/src/lib/raydium/quote';
-import type { TProposal } from '@/src/lib/storage/types';
-import { executeSwap } from '@degen/strategy-core/src/executors/swap';
+import { getComputeQuote, formatLamports } from '../../lib/raydium/quote';
+import type { TProposal } from '../../lib/storage/types';
 
 // Example proposal (adjust to your targets)
 const EXAMPLE_PAIRS = [
@@ -125,17 +124,13 @@ export default function Page() {
   const onYes = async (id: string) => {
     const p = proposals.find((x) => x.id === id);
     if (!p) return;
-    try {
-      const res = await executeSwap({
+          const payload: TProposal = {
         id,
         pair: p.pair,
         slippageBps: p.slippageBps,
-      } as unknown as TProposal);
-      alert(`Submitted YES (stub). tx=${res.tx || '(stubbed)'}`);
-    } catch (e: any) {
-      alert(`Execute failed: ${e?.message ?? String(e)}`);
-    }
-  };
+      };
+      alert(`YES (stub). Would execute:$ {JSON.stringify(payload)}`);
+      };
 
   return (
     <div style={{ padding: 16 }}>
