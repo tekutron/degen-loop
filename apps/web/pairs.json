@@ -1,0 +1,13 @@
+[
+  {
+    "id": "pair-wsol-usdc",
+    "pair": "wSOL/USDC",
+    "inputMint": "So11111111111111111111111111111111111111112",
+    "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+    "decimalsIn": 9,
+    "decimalsOut": 6,
+    "defaultAmountRaw": 1000000,
+    "slippageBps": 50,
+    "txVersion": "V0"
+  }
+]
