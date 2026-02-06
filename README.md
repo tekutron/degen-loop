@@ -1,11 +1,16 @@
 # degen-loop
 
-Solana degen trading UI (Next.js) with Raydium execution, Phantom wallet, proposal/positions integration, and optional price display via free Jupiter API.
+Solana degen trading UI (Next.js) with Raydium execution, Phantom wallet, proposals/positions integration, trending markets, and an optional local “cycle” runner.
 
 ## Features
 
-- App Router (Next 14)
-- Phantom connect (Wallet Adapter)
+- Next.js App Router (Next 14)
+- Phantom connect (Solana Wallet Adapter)
+- Dashboard (home `/`)
+  - Trending snapshot + one-click buy
+  - Top proposals + quote/price + simulate + execute
+  - Positions + Sell NOW
+  - Cycle controls + trades feed
 - Proposals
   - Source from file or URL (env)
   - Live Raydium compute quotes
@@ -19,6 +24,9 @@ Solana degen trading UI (Next.js) with Raydium execution, Phantom wallet, propos
   - RPC override (localStorage)
   - Cluster override (mainnet/devnet)
   - Default slippage bps (stored locally)
+- Trending
+  - Top-10 Solana tokens via DexScreener (server route)
+  - Buy with SOL from UI
 
 ## Quick start
 
@@ -54,6 +62,10 @@ npm run dev
 
 ## Pages
 
+- `/` (Dashboard)
+  - Consolidated view: Trending + Proposals + Positions + Cycle + Trades
+- `/markets`
+  - Trending list (DexScreener) + “Buy 0.001 SOL”
 - `/proposals`
   - Loads proposals from `/api/proposals` (URL or PATH or fallback file)
   - Shows live quotes (Raydium compute), USD prices (Jupiter), Simulate & YES buttons
@@ -76,6 +88,19 @@ npm run dev
   - Simulates the transaction using NEXT_PUBLIC_SOLANA_RPC
 - `GET /api/price/jupiter?mint=<MINT>`
   - Free price lookup via Jupiter Price API v6
+- `GET /api/trending/solana`
+  - Returns top trending token candidates (DexScreener)
+
+### Cycle runner routes
+
+These control a local runner script under `jupbot/` (uses the jupbot keypair).
+
+- `POST /api/cycle/start`
+  - Body: `{ "sizeSol": number }`
+- `POST /api/cycle/stop`
+  - Stops and liquidates all to SOL
+- `GET /api/cycle/status`
+- `GET /api/cycle/trades`
 
 ## Proposals JSON shape
 
@@ -117,10 +142,15 @@ Additional fields are rendered as-is (won't break UI).
 
 ## Safety & notes
 
-- Simulate before send (button available on /proposals)
+- Simulate before send (button available on /proposals and /)
 - YES uses Raydium tx builder with wrap SOL + ATAs
 - Always verify the pair and amount before signing
 - Settings overrides are local only (no secrets in repo)
+
+### WalletConnect note (legacy)
+
+There is a legacy file `apps/web/WalletConnect.tsx` kept as a compatibility shim.
+The real component used by the App Router is `apps/web/src/components/WalletConnect.tsx`.
 
 ## Deploy (Vercel or similar)
 
