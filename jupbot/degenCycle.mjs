@@ -51,7 +51,52 @@ function mustEnv(name) { const v = process.env[name]; if (!v) throw new Error(`M
 async function execNode(file, env) { const { spawn } = await import('node:child_process'); return await new Promise((resolve, reject) => { const p = spawn('node', [file], { cwd: HERE, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] }); let out = ''; let err = ''; p.stdout.on('data', (d) => (out += d.toString())); p.stderr.on('data', (d) => (err += d.toString())); p.on('close', (code) => { if (code === 0) return resolve({ out, err }); reject(new Error(`Command failed (${code}): node ${file}\nSTDOUT:\n${out}\nSTDERR:\n${err}`)); }); }); }
 function extractSig(stdout) { const m = stdout.match(/\b[1-9A-HJ-NP-Za-km-z]{80,120}\b/); return m ? m[0] : ''; }
 async function sumTokenRaw(connection, ownerPk, mintStr) { const mint = new PublicKey(mintStr); const resp = await connection.getTokenAccountsByOwner(ownerPk, { mint }, 'confirmed'); let total = 0n; for (const { pubkey } of resp.value) { const bal = await connection.getTokenAccountBalance(pubkey, 'confirmed'); total += BigInt(bal.value.amount); } return total; }
-async function fetchTrendingTop10() { const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' }); if (!boostsRes.ok) throw new Error(`dexscreener boosts ${boostsRes.status}`); const boosts = await boostsRes.json(); const sol = boosts.filter((b) => (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress); const topTokens = sol.slice(0, 10).map((b) => String(b.tokenAddress)); const results = []; for (const addr of topTokens) { try { const res = await fetch(TOKEN_URL(addr), { cache: 'no-store' }); if (!res.ok) continue; const json = await res.json(); const pairs = Array.isArray(json?.pairs) ? json.pairs : []; const solPairs = pairs.filter((p) => (p?.chainId ?? '').toLowerCase() === 'solana'); solPairs.sort((a, b) => Number(b?.volume?.h24 ?? 0) - Number(a?.volume?.h24 ?? 0)); const p = solPairs[0]; if (!p?.baseToken?.address) continue; results.push({ mint: p.baseToken.address, symbol: p.baseToken.symbol, name: p.baseToken.name, priceUsd: Number(p.priceUsd ?? 0), dexUrl: p.url, volumeH24: Number(p?.volume?.h24 ?? 0), liquidityUsd: Number(p?.liquidity?.usd ?? 0), }); } catch { } } return results.slice(0, 10); }
+async function fetchRaydiumTopVolume1h() {
+  // Fetch top boosted tokens and filter for Raydium pairs with high 1h volume
+  const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
+  if (!boostsRes.ok) throw new Error(`dexscreener boosts ${boostsRes.status}`);
+  const boosts = await boostsRes.json();
+  const sol = boosts.filter((b) => (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress);
+  const topTokens = sol.slice(0, 30).map((b) => String(b.tokenAddress)); // Get more to filter
+  
+  const results = [];
+  for (const addr of topTokens) {
+    try {
+      const res = await fetch(TOKEN_URL(addr), { cache: 'no-store' });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const pairs = Array.isArray(json?.pairs) ? json.pairs : [];
+      
+      // Filter for Raydium pairs on Solana
+      const raydiumPairs = pairs.filter((p) => 
+        (p?.chainId ?? '').toLowerCase() === 'solana' && 
+        (p?.dexId ?? '').toLowerCase() === 'raydium'
+      );
+      
+      if (raydiumPairs.length === 0) continue;
+      
+      // Sort by 1h volume
+      raydiumPairs.sort((a, b) => Number(b?.volume?.h1 ?? 0) - Number(a?.volume?.h1 ?? 0));
+      const p = raydiumPairs[0];
+      if (!p?.baseToken?.address) continue;
+      
+      results.push({
+        mint: p.baseToken.address,
+        symbol: p.baseToken.symbol,
+        name: p.baseToken.name,
+        priceUsd: Number(p.priceUsd ?? 0),
+        dexUrl: p.url,
+        volumeH1: Number(p?.volume?.h1 ?? 0),
+        volumeH24: Number(p?.volume?.h24 ?? 0),
+        liquidityUsd: Number(p?.liquidity?.usd ?? 0),
+      });
+    } catch { }
+  }
+  
+  // Sort by 1h volume descending and take top 10
+  results.sort((a, b) => b.volumeH1 - a.volumeH1);
+  return results.slice(0, 10);
+}
 async function fetchPriceUsdForMint(mint) { const res = await fetch(TOKEN_URL(mint), { cache: 'no-store' }); if (!res.ok) throw new Error(`dexscreener token ${res.status}`); const json = await res.json(); const pairs = Array.isArray(json?.pairs) ? json.pairs : []; const solPairs = pairs.filter((p) => (p?.chainId ?? '').toLowerCase() === 'solana'); solPairs.sort((a, b) => Number(b?.volume?.h24 ?? 0) - Number(a?.volume?.h24 ?? 0)); const p = solPairs[0]; const priceUsd = Number(p?.priceUsd ?? 0); if (!priceUsd) throw new Error('priceUsd missing'); return { priceUsd, url: p?.url }; }
 
 async function main() {
@@ -79,10 +124,10 @@ async function main() {
   while (true) {
     const now = Date.now();
     if (now >= nextTrendingAt || trending.length === 0) {
-      writeState({ stage: 'FETCH_TRENDING' });
-      trending = await fetchTrendingTop10();
+      writeState({ stage: 'FETCH_RAYDIUM_TOP_VOLUME' });
+      trending = await fetchRaydiumTopVolume1h();
       nextTrendingAt = now + trendingRefreshMs;
-      if (trending.length === 0) { writeState({ stage: 'NO_TRENDING' }); await sleep(5000); continue; }
+      if (trending.length === 0) { writeState({ stage: 'NO_RAYDIUM_PAIRS' }); await sleep(5000); continue; }
       idx = idx % trending.length; writeState({ trending, nextTrendingAt, idx });
     }
 
