@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import fs from 'node:fs/promises';
 
 const KEYPAIR_PATH = '/home/j/.openclaw/workspace/jupbot/wallets/generated_keypair.json';
 const JUPITER_PRICE_API = 'https://api.jup.ag/price/v2';
+const TOKENS_PATH = './tokens.json';
 
 interface TokenAccount {
   mint: string;
@@ -13,6 +14,11 @@ interface TokenAccount {
   uiAmount: number;
   priceUSD?: number;
   valueUSD?: number;
+}
+
+interface TokenMetadata {
+  symbol?: string;
+  decimals?: number;
 }
 
 export async function GET() {
@@ -25,12 +31,19 @@ export async function GET() {
     // Load keypair to get wallet address
     const kpData = await fs.readFile(KEYPAIR_PATH, 'utf-8');
     const kpArray = JSON.parse(kpData);
-    const walletPubkey = new PublicKey(
-      // Derive pubkey from secret key array
-      Buffer.from(kpArray.slice(32, 64))
-    );
+    const keypair = Keypair.fromSecretKey(Uint8Array.from(kpArray));
+    const walletPubkey = keypair.publicKey;
 
     const connection = new Connection(rpc, 'confirmed');
+
+    // Load token metadata
+    let tokensMetadata: Record<string, TokenMetadata> = {};
+    try {
+      const tokensData = await fs.readFile(TOKENS_PATH, 'utf-8');
+      tokensMetadata = JSON.parse(tokensData);
+    } catch {
+      // tokens.json not found, continue without metadata
+    }
 
     // Get SOL balance
     const solBalance = await connection.getBalance(walletPubkey);
@@ -44,14 +57,16 @@ export async function GET() {
 
     const positions: TokenAccount[] = [];
 
-    // Add SOL
-    positions.push({
-      mint: 'So11111111111111111111111111111111111111112',
-      symbol: 'SOL',
-      amount: solBalance.toString(),
-      decimals: 9,
-      uiAmount: solUiAmount,
-    });
+    // Add native SOL only if balance > 0
+    if (solUiAmount > 0) {
+      positions.push({
+        mint: '11111111111111111111111111111111',
+        symbol: 'SOL',
+        amount: solBalance.toString(),
+        decimals: 9,
+        uiAmount: solUiAmount,
+      });
+    }
 
     // Add SPL tokens with balance > 0
     for (const acc of tokenAccounts.value) {
@@ -59,8 +74,10 @@ export async function GET() {
       const info = parsed?.info;
       if (!info || info.tokenAmount.uiAmount === 0) continue;
 
+      const meta = tokensMetadata[info.mint];
       positions.push({
         mint: info.mint,
+        symbol: meta?.symbol,
         amount: info.tokenAmount.amount,
         decimals: info.tokenAmount.decimals,
         uiAmount: info.tokenAmount.uiAmount,
