@@ -166,8 +166,8 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
     'Accept': 'application/json'
   };
   
-  // Only use v6 endpoint
-  const url = 'https://quote-api.jup.ag/v6/quote';
+  // Use Jupiter v6 endpoint
+  const url = 'https://api.jup.ag/v6/quote';
   
   try {
     const { data } = await axios.get(url, { params, timeout: 15000, headers });
@@ -182,7 +182,7 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
 
 async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPriceMicroLamports = 0 }) {
   const headers = { 'user-agent': 'jupbot/1.0 (+sdkSwap)' };
-  const urls = [ 'https://quote-api.jup.ag/v6/swap' ];
+  const urls = [ 'https://api.jup.ag/v6/swap' ];
   let lastErr;
   for (const url of urls) {
     try {
