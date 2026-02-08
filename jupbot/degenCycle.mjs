@@ -88,10 +88,11 @@ async function main() {
 
     const t = trending[idx];
     if (!t?.mint) { idx = (idx + 1) % trending.length; continue; }
-    // Skip illiquid tokens quickly (helps avoid 404/no-route)
-    if (!t.liquidityUsd || t.liquidityUsd < 50000) { 
+    // Skip illiquid tokens (need high liquidity for Raydium routes)
+    if (!t.liquidityUsd || t.liquidityUsd < 100000) { 
       writeState({ stage: 'SKIP_LOW_LIQ', skipped: t.symbol, liquidityUsd: t.liquidityUsd });
       idx = (idx + 1) % trending.length; 
+      await sleep(1000); // brief pause before trying next
       continue; 
     }
 
