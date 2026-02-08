@@ -52,15 +52,38 @@ async function execNode(file, env) { const { spawn } = await import('node:child_
 function extractSig(stdout) { const m = stdout.match(/\b[1-9A-HJ-NP-Za-km-z]{80,120}\b/); return m ? m[0] : ''; }
 async function sumTokenRaw(connection, ownerPk, mintStr) { const mint = new PublicKey(mintStr); const resp = await connection.getTokenAccountsByOwner(ownerPk, { mint }, 'confirmed'); let total = 0n; for (const { pubkey } of resp.value) { const bal = await connection.getTokenAccountBalance(pubkey, 'confirmed'); total += BigInt(bal.value.amount); } return total; }
 async function fetchRaydiumTopVolume1h() {
-  // Fetch top boosted tokens and filter for Raydium pairs with high 1h volume
-  const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
-  if (!boostsRes.ok) throw new Error(`dexscreener boosts ${boostsRes.status}`);
-  const boosts = await boostsRes.json();
-  const sol = boosts.filter((b) => (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress);
-  const topTokens = sol.slice(0, 100).map((b) => String(b.tokenAddress)); // Check more tokens to get 10 Raydium pairs
+  // Fetch established Solana tokens with Raydium pairs, sorted by 1h volume
+  // Using major tokens + recent boosts that have actual Raydium liquidity
+  const majorTokens = [
+    'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', // JUP
+    'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL', // JTO  
+    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK
+    'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF
+    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+    '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', // POPCAT
+    'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC', // AI16Z
+    'Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump', // CHILLGUY
+    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', // RAY
+    'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5', // MEW
+    'nosXBVoaCTtYdLvKY6Csb4AC8JCdQKKAaWYtx2ZMoo7', // NOS
+  ];
   
+  // Also check top boosted tokens for any with Raydium pairs
+  let additionalTokens = [];
+  try {
+    const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
+    if (boostsRes.ok) {
+      const boosts = await boostsRes.json();
+      const sol = boosts.filter((b) => (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress);
+      additionalTokens = sol.slice(0, 30).map((b) => String(b.tokenAddress));
+    }
+  } catch {}
+  
+  const allTokens = [...majorTokens, ...additionalTokens];
   const results = [];
-  for (const addr of topTokens) {
+  
+  for (const addr of allTokens) {
     try {
       const res = await fetch(TOKEN_URL(addr), { cache: 'no-store' });
       if (!res.ok) continue;
@@ -79,6 +102,9 @@ async function fetchRaydiumTopVolume1h() {
       raydiumPairs.sort((a, b) => Number(b?.volume?.h1 ?? 0) - Number(a?.volume?.h1 ?? 0));
       const p = raydiumPairs[0];
       if (!p?.baseToken?.address) continue;
+      
+      // Skip if we already have this token
+      if (results.some(r => r.mint === p.baseToken.address)) continue;
       
       results.push({
         mint: p.baseToken.address,
