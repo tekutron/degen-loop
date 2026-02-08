@@ -341,9 +341,9 @@ export default function DashboardPage() {
 
       {/* Three columns + Trades */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-        {/* Trending */}
+        {/* Top Volume Coins */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Trending (Top 10 · 24h)</div>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Top Volume Coins (1h Raydium)</div>
           {!trending.length ? (
             <div style={{ fontSize: 12, color: '#6b7280' }}>No data.</div>
           ) : (
