@@ -7,6 +7,7 @@ import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { getConnection, explorerTxUrl } from '@/lib/solana/connection';
 import { buildRaydiumSwapBaseInTx } from '@/lib/raydium/tx';
+import toast from 'react-hot-toast';
 
 const WSOL = 'So11111111111111111111111111111111111111112';
 
@@ -45,9 +46,7 @@ export default function MarketsPage() {
   useEffect(() => { load(); }, []);
 
   const onBuyWithSol = async (mint: string, amountRawLamports = 1_000_000, slippageBps = 100) => {
-    if (!publicKey) { alert('Connect Phantom first.'); return; }
-    const ok = confirm(`Buy with SOL?\nMint: ${mint}\nAmount SOL: ${amountRawLamports / 1e9}`);
-    if (!ok) return;
+    if (!publicKey) { toast.error('Connect Phantom first.'); return; }
     try {
       const owner = publicKey;
       const inputMint = new PublicKey(WSOL); // SOL in (wrap)
@@ -68,9 +67,16 @@ export default function MarketsPage() {
 
       const conn = getConnection();
       const sig = await sendTransaction(built.transaction as any, conn);
-      alert(`Sent! ${sig}\n${explorerTxUrl(sig)}`);
+      toast.success(
+        (t) => (
+          <span>
+            Sent <a href={explorerTxUrl(sig)} target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>view tx</a>
+          </span>
+        ),
+        { duration: 6000 }
+      );
     } catch (e: any) {
-      alert(`Buy failed: ${e?.message ?? String(e)}`);
+      toast.error(`Buy failed: ${e?.message ?? String(e)}`);
     }
   };
 
@@ -105,7 +111,7 @@ export default function MarketsPage() {
               )}
             </div>
           </div>
-        ))
+        ))}
       )}
     </div>
   );

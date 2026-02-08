@@ -6,6 +6,7 @@ import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 
 import { WalletConnect } from '@/components/WalletConnect';
+import WalletCard from '@/components/WalletCard';
 import { getConnection, explorerTxUrl } from '@/lib/solana/connection';
 import { buildRaydiumSwapBaseInTx } from '@/lib/raydium/tx';
 import { getComputeQuote } from '@/lib/raydium/quote';
@@ -96,7 +97,7 @@ export default function DashboardPage() {
   const [busy, setBusy] = useState(false);
 
   // Cycle control
-  const [sizeSol, setSizeSol] = useState('0.001');
+  const [sizeSol, setSizeSol] = useState('0.01');
   const [cycle, setCycle] = useState<CycleState | null>(null);
   const [cycleLoading, setCycleLoading] = useState(false);
 
@@ -123,17 +124,30 @@ export default function DashboardPage() {
     try {
       setCycleLoading(true);
       const num = Number(sizeSol);
-      if (!num || num <= 0) return alert('Enter a valid size in SOL');
+      if (!num || num <= 0) {
+        // lazy import to avoid hard dep at top
+        const { toast } = await import('react-hot-toast');
+        toast?.error?.('Enter a valid size in SOL');
+        return;
+      }
       const res = await fetch('/api/cycle/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sizeSol: num }),
       });
       const json = await res.json();
-      if (!res.ok) return alert(`Start failed: ${json?.error ?? res.status}`);
+      if (!res.ok || !json?.ok) {
+        const { toast } = await import('react-hot-toast');
+        toast?.error?.(`Start failed: ${json?.error ?? res.status}`);
+        return;
+      }
+      const { toast } = await import('react-hot-toast');
+      const pidStr = (json?.pid ?? '').toString();
+      toast?.success?.(`Cycle started (pid ${pidStr})`);
       await loadCycle();
     } catch (e: any) {
-      alert(`Start failed: ${e?.message ?? String(e)}`);
+      const { toast } = await import('react-hot-toast');
+      toast?.error?.(`Start failed: ${e?.message ?? String(e)}`);
     } finally {
       setCycleLoading(false);
     }
@@ -144,11 +158,18 @@ export default function DashboardPage() {
       setCycleLoading(true);
       const res = await fetch('/api/cycle/stop', { method: 'POST' });
       const json = await res.json();
-      if (!res.ok) return alert(`Stop failed: ${json?.error ?? res.status}`);
+      if (!res.ok || !json?.ok) {
+        const { toast } = await import('react-hot-toast');
+        toast?.error?.(`Stop failed: ${json?.error ?? res.status}`);
+        return;
+      }
+      const { toast } = await import('react-hot-toast');
+      toast?.success?.('Cycle stop requested');
       await loadCycle();
       await loadTrades();
     } catch (e: any) {
-      alert(`Stop failed: ${e?.message ?? String(e)}`);
+      const { toast } = await import('react-hot-toast');
+      toast?.error?.(`Stop failed: ${e?.message ?? String(e)}`);
     } finally {
       setCycleLoading(false);
     }
@@ -374,33 +395,8 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Proposals */}
-        <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Proposals (Top 10)</div>
-          {!proposals.length ? (
-            <div style={{ fontSize: 12, color: '#6b7280' }}>No proposals.</div>
-          ) : (
-            proposals.map((p) => {
-              const q = quoteMap[p.id];
-              const pr = priceMap[p.id];
-              return (
-                <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{p.pair}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    in: {formatByMint(p.inputMint, p.amountRaw)} | out est: {q?.amountOut ? formatByMint(p.outputMint, q.amountOut) : '—'}
-                  </div>
-                  <div style={{ fontSize: 12, color: '#111827' }}>
-                    price(in): {pr?.in != null ? `$${pr.in.toFixed(6)}` : '—'} | price(out): {pr?.out != null ? `$${pr.out.toFixed(6)}` : '—'}
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button onClick={() => simProposal(p)} disabled={busy} style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #111827', background: '#fff' }}>Sim</button>
-                    <button onClick={() => yesProposal(p)} disabled={busy} style={{ padding: '4px 8px', borderRadius: 6, background: '#111827', color: '#fff' }}>YES</button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </section>
+        {/* Wallet */}
+        <WalletCard />
 
         {/* Positions */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>

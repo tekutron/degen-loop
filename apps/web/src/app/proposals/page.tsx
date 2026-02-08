@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { useWallet } from '@solana/wallet-adapter-react';
+import toast from 'react-hot-toast';
 
 import { WalletConnect } from '@/components/WalletConnect';
 import { getComputeQuote } from '@/lib/raydium/quote';
@@ -29,6 +30,23 @@ function u8ToBase64(u8: Uint8Array): string {
   for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
   // eslint-disable-next-line no-undef
   return btoa(s);
+}
+
+function pushRecentTx(sig: string) {
+  try {
+    const key = 'recentTxs';
+    const prev = JSON.parse(localStorage.getItem(key) || '[]');
+    const next = [{ sig, url: explorerTxUrl(sig), at: Date.now() }, ...prev].slice(0, 5);
+    localStorage.setItem(key, JSON.stringify(next));
+  } catch {}
+}
+
+function getRecentTxs(): { sig: string; url: string; at: number }[] {
+  try {
+    return JSON.parse(localStorage.getItem('recentTxs') || '[]');
+  } catch {
+    return [];
+  }
 }
 
 function ProposalCard({
@@ -120,6 +138,7 @@ export default function Page() {
   const [quotes, setQuotes] = useState<Record<string, { amountOut?: string; otherAmountThreshold?: string }>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [priceMap, setPriceMap] = useState<Record<string, { in?: number | null; out?: number | null }>>({});
+  const [recent, setRecent] = useState<{ sig: string; url: string; at: number }[]>([]);
 
   const refreshQuotes = async () => {
     const nextQuoting: Record<string, boolean> = {};
@@ -164,6 +183,7 @@ export default function Page() {
 
   useEffect(() => {
     refreshQuotes();
+    setRecent(getRecentTxs());
     const t = setInterval(refreshQuotes, 20_000);
     return () => clearInterval(t);
   }, []);
@@ -192,7 +212,7 @@ export default function Page() {
     const p = proposals.find((x) => x.id === id);
     if (!p) return;
     if (!publicKey) {
-      alert('Connect Phantom first.');
+      toast.error('Connect Phantom first.');
       return;
     }
     try {
@@ -209,12 +229,14 @@ export default function Page() {
       if (!res.ok || !json?.ok) throw new Error(json?.error ?? `simulate ${res.status}`);
       const v = json.value;
       if (v.err) {
-        alert(`Simulate: FAILED\nunits=${v.unitsConsumed ?? '—'}\nlogs=\n${(v.logs ?? []).join('\n')}`);
+        console.warn('Sim FAILED logs:', v.logs);
+        toast.error(`Simulate failed • units=${v.unitsConsumed ?? '—'}`);
       } else {
-        alert(`Simulate: OK\nunits=${v.unitsConsumed ?? '—'}\nlogs=\n${(v.logs ?? []).slice(-10).join('\n')}`);
+        console.log('Sim OK logs:', (v.logs ?? []).slice(-10));
+        toast.success(`Simulate OK • units=${v.unitsConsumed ?? '—'}`);
       }
     } catch (e: any) {
-      alert(`Simulate failed: ${e?.message ?? String(e)}`);
+      toast.error(`Simulate failed: ${e?.message ?? String(e)}`);
     }
   };
 
@@ -223,20 +245,26 @@ export default function Page() {
     if (!p) return;
 
     if (!publicKey) {
-      alert('Connect Phantom first.');
+      toast.error('Connect Phantom first.');
       return;
     }
-
-    const ok = confirm(`Execute swap via Raydium?\nPair: ${p.pair}\nAmountRaw: ${p.amountRaw}`);
-    if (!ok) return;
 
     try {
       const conn = getConnection();
       const built = await buildTxFor(p);
       const sig = await sendTransaction(built.transaction as any, conn);
-      alert(`Sent! ${sig}\n${explorerTxUrl(sig)}`);
+      pushRecentTx(sig);
+      setRecent(getRecentTxs());
+      toast.success(
+        (t) => (
+          <span>
+            Sent <a href={explorerTxUrl(sig)} target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>view tx</a>
+          </span>
+        ),
+        { duration: 6000 }
+      );
     } catch (e: any) {
-      alert(`Swap failed: ${e?.message ?? String(e)}`);
+      toast.error(`Swap failed: ${e?.message ?? String(e)}`);
     }
   };
 
@@ -256,6 +284,22 @@ export default function Page() {
           prices={priceMap[p.id] ?? null}
         />
       ))}
+
+      <div style={{ marginTop: 16 }}>
+        <div style={{ fontWeight: 600, marginBottom: 6 }}>Recent Tx</div>
+        {!recent.length ? (
+          <div style={{ fontSize: 12, color: '#6b7280' }}>No recent transactions.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {recent.map((r) => (
+              <div key={r.sig} style={{ fontSize: 12 }}>
+                <a href={r.url} target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>{r.sig.slice(0, 8)}…{r.sig.slice(-6)}</a>
+                <span style={{ color: '#6b7280' }}> • {new Date(r.at).toLocaleTimeString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
