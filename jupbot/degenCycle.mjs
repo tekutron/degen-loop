@@ -57,7 +57,7 @@ async function fetchRaydiumTopVolume1h() {
   if (!boostsRes.ok) throw new Error(`dexscreener boosts ${boostsRes.status}`);
   const boosts = await boostsRes.json();
   const sol = boosts.filter((b) => (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress);
-  const topTokens = sol.slice(0, 30).map((b) => String(b.tokenAddress)); // Get more to filter
+  const topTokens = sol.slice(0, 100).map((b) => String(b.tokenAddress)); // Check more tokens to get 10 Raydium pairs
   
   const results = [];
   for (const addr of topTokens) {
