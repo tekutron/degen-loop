@@ -23,7 +23,6 @@ function loadEnvFile(p) {
 }
 loadEnvFile(path.join(HERE, '.env'));
 
-const HERE = path.dirname(new URL(import.meta.url).pathname);
 const PID_FILE = path.join(HERE, 'cycle.pid');
 const STATE_FILE = path.join(HERE, 'cycle_state.json');
 const TRADES_FILE = path.join(HERE, 'cycle_trades.json');
