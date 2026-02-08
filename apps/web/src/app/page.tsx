@@ -87,7 +87,6 @@ export default function DashboardPage() {
 
   const [trending, setTrending] = useState<TrendingItem[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [positions, setPositions] = useState<Position[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
 
   const [quoteMap, setQuoteMap] = useState<Record<string, { amountOut?: string; otherAmountThreshold?: string }>>({});
@@ -178,18 +177,15 @@ export default function DashboardPage() {
   const loadAll = async () => {
     try {
       setErr(null);
-      const [tRes, pRes, posRes] = await Promise.all([
+      const [tRes, pRes] = await Promise.all([
         fetch('/api/trending/solana', { cache: 'no-store' }),
         fetch('/api/proposals', { cache: 'no-store' }),
-        fetch('/api/positions', { cache: 'no-store' }),
       ]);
       const tJson = tRes.ok ? await tRes.json() : null;
       const pJson = pRes.ok ? await pRes.json() : null;
-      const posJson = posRes.ok ? await posRes.json() : null;
       setTrending(Array.isArray(tJson?.items) ? tJson.items : []);
       const pList: Proposal[] = Array.isArray(pJson) ? pJson : (pJson?.proposals ?? []);
       setProposals(pList.filter((p) => (p.status ?? 'PROPOSED') === 'PROPOSED').slice(0, 10));
-      setPositions(Array.isArray(posJson?.positions) ? posJson.positions : []);
       await Promise.all([loadCycle(), loadTrades()]);
     } catch (e: any) {
       setErr(e?.message ?? String(e));
@@ -326,29 +322,6 @@ export default function DashboardPage() {
     }
   };
 
-  const sellPosition = async (pos: Position) => {
-    try {
-      setBusy(true);
-      const amt = typeof pos.amountRaw === 'string' ? Number(pos.amountRaw) : (pos.amountRaw ?? 0);
-      if (!pos.mint || !amt) return alert('Missing mint/amount');
-      const ok = confirm(`Sell NOW?\nMint: ${pos.mint}\nAmountRaw: ${amt}`);
-      if (!ok) return;
-      const built = await buildSwap({
-        inputMint: pos.mint,
-        outputMint: WSOL,
-        amountRaw: amt,
-        slippageBps: 100,
-      });
-      const conn = getConnection();
-      const sig = await sendTransaction(built.transaction as any, conn);
-      alert(`Sent! ${sig}\n${explorerTxUrl(sig)}`);
-    } catch (e: any) {
-      alert(`Sell failed: ${e?.message ?? String(e)}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div style={{ padding: 16 }}>
       {/* Top controls */}
@@ -397,27 +370,6 @@ export default function DashboardPage() {
 
         {/* Wallet */}
         <WalletCard />
-
-        {/* Positions */}
-        <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Positions</div>
-          {!positions.length ? (
-            <div style={{ fontSize: 12, color: '#6b7280' }}>No positions.</div>
-          ) : (
-            positions.slice(0, 10).map((pos, idx) => {
-              const amt = pos.amountRaw ?? 0;
-              return (
-                <div key={pos.id ?? `${pos.mint}-${idx}`} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{pos.symbol ?? pos.mint}</div>
-                  <div style={{ fontSize: 12, color: '#6b7280' }}>amount: {formatByMint(pos.mint, amt)}</div>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                    <button onClick={() => sellPosition(pos)} disabled={busy} style={{ padding: '4px 8px', borderRadius: 6, background: '#111827', color: '#fff' }}>Sell NOW</button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </section>
 
         {/* Trades */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
