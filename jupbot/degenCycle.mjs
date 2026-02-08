@@ -31,6 +31,14 @@ const WSOL = 'So11111111111111111111111111111111111111112';
 const BOOSTS_URL = 'https://api.dexscreener.com/token-boosts/latest/v1';
 const TOKEN_URL = (addr) => `https://api.dexscreener.com/latest/dex/tokens/${addr}`;
 
+// Stablecoins to skip
+const STABLECOINS = new Set([
+  'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
+  'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
+  'USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB',   // USD1
+  'USDH1SM1ojwWUga67PGrgFWUHibbjqMvuMaDkRJTgkX',   // USDH
+]);
+
 function nowIso() { return new Date().toISOString(); }
 function writeState(patch) {
   const prev = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : {};
@@ -59,8 +67,6 @@ async function fetchRaydiumTopVolume1h() {
     'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL', // JTO  
     'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK
     'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF
-    'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', // USDT
-    'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
     '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', // POPCAT
     'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC', // AI16Z
     'Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump', // CHILLGUY
@@ -159,6 +165,15 @@ async function main() {
 
     const t = trending[idx];
     if (!t?.mint) { idx = (idx + 1) % trending.length; continue; }
+    
+    // Skip stablecoins
+    if (STABLECOINS.has(t.mint)) {
+      writeState({ stage: 'SKIP_STABLECOIN', skipped: t.symbol });
+      idx = (idx + 1) % trending.length;
+      await sleep(500);
+      continue;
+    }
+    
     // Skip illiquid tokens (need high liquidity for Raydium routes)
     if (!t.liquidityUsd || t.liquidityUsd < 100000) { 
       writeState({ stage: 'SKIP_LOW_LIQ', skipped: t.symbol, liquidityUsd: t.liquidityUsd });
