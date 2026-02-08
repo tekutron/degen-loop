@@ -166,7 +166,7 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
     'Accept': 'application/json'
   };
   if (process.env.JUPITER_API_KEY) {
-    headers['Authorization'] = `Bearer ${process.env.JUPITER_API_KEY}`;
+    headers['x-api-key'] = process.env.JUPITER_API_KEY;
   }
   
   // Use Jupiter v6 endpoint
@@ -185,9 +185,11 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
 
 async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPriceMicroLamports = 0 }) {
   const headers = { 
-    'user-agent': 'jupbot/1.0 (+sdkSwap)',
-    'Authorization': process.env.JUPITER_API_KEY ? `Bearer ${process.env.JUPITER_API_KEY}` : ''
+    'user-agent': 'jupbot/1.0 (+sdkSwap)'
   };
+  if (process.env.JUPITER_API_KEY) {
+    headers['x-api-key'] = process.env.JUPITER_API_KEY;
+  }
   const urls = [ 'https://api.jup.ag/v6/swap' ];
   let lastErr;
   for (const url of urls) {
@@ -211,9 +213,11 @@ async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPri
 
 async function buildJupiterSwapInstructionsTx({ connection, quoteResponse, userPublicKey, owner }) {
   const headers = { 
-    'user-agent': 'jupbot/1.0 (+sdkSwap)',
-    'Authorization': process.env.JUPITER_API_KEY ? `Bearer ${process.env.JUPITER_API_KEY}` : ''
+    'user-agent': 'jupbot/1.0 (+sdkSwap)'
   };
+  if (process.env.JUPITER_API_KEY) {
+    headers['x-api-key'] = process.env.JUPITER_API_KEY;
+  }
   const url = 'https://quote-api.jup.ag/v6/swap-instructions';
   const { data } = await axios.post(url, {
     quoteResponse,
@@ -587,7 +591,25 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const walletPath = process.env.SWAP_WALLET;
   const inputMint = process.env.INPUT_MINT || WSOL;
   const outputMint = process.env.OUTPUT_MINT;
-  const amount = Number(process.env.AMOUNT_LAMPORTS || 5_000_000);
+  
+  // Handle large amounts (USDC has 6 decimals, can be billions of raw units)
+  // Use BigInt for parsing, then convert to Number only if safe
+  const amountStr = process.env.AMOUNT_LAMPORTS || '5000000';
+  let amount;
+  try {
+    const amountBig = BigInt(amountStr);
+    // Check if it's safe to convert to Number (< Number.MAX_SAFE_INTEGER)
+    if (amountBig <= BigInt(Number.MAX_SAFE_INTEGER)) {
+      amount = Number(amountBig);
+    } else {
+      throw new Error(`Amount too large for safe conversion: ${amountStr}`);
+    }
+  } catch (e) {
+    if (e.message.includes('too large')) throw e;
+    // If BigInt parsing fails, try Number directly (backward compat)
+    amount = Number(amountStr);
+  }
+  
   const slippageBps = Number(process.env.SLIPPAGE_BPS || 100);
   const txVersion = process.env.TX_VERSION || 'V0';
 
