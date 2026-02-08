@@ -5,14 +5,116 @@
 import fs from 'fs';
 import axios from 'axios';
 import BN from 'bn.js';
+import path from 'node:path';
+
+const HERE = path.dirname(new URL(import.meta.url).pathname);
+function loadEnvFile(p) {
+  try {
+    const txt = fs.readFileSync(p, 'utf8');
+    for (const line of txt.split(/\r?\n/)) {
+      const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
+      if (m) {
+        const k = m[1];
+        let v = m[2];
+        if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) v = v.slice(1, -1);
+        if (!process.env[k]) process.env[k] = v;
+      }
+    }
+  } catch {}
+}
+loadEnvFile(path.join(HERE, '.env'));
 
 import {
   Connection,
   Keypair,
   PublicKey,
   Transaction,
+  VersionedTransaction,
   ComputeBudgetProgram,
+  AddressLookupTableAccount,
+  TransactionMessage,
 } from '@solana/web3.js';
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function retryRpc(fn, { tries = 6, baseMs = 500 } = {}) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { return await fn(); } catch (e) {
+      lastErr = e;
+      const msg = (e && (e.message || e.toString())) || '';
+      const is429 = msg.includes('429') || msg.includes('Too Many Requests');
+      const isRate = is429 || msg.includes('rate') || msg.includes('throttle');
+      if (i < tries - 1 && isRate) {
+        const delay = baseMs * Math.pow(2, i) + Math.floor(Math.random() * 150);
+        await sleep(delay);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
+
+// 0x (ZeroEx) helpers (Solana)
+function getZeroExBase() {
+  return process.env.ZEROX_BASE || 'https://api.0x.org/swap/solana';
+}
+function getZeroExHeaders() {
+  const h = { 'user-agent': 'jupbot/1.0 (+sdkSwap)' };
+  if (process.env.ZEROX_API_KEY) h['0x-api-key'] = process.env.ZEROX_API_KEY;
+  return h;
+}
+async function zeroExQuote({ inputMint, outputMint, amount, slippageBps, taker }) {
+  const url = getZeroExBase() + '/quote';
+  const params = {
+    sellToken: inputMint,
+    buyToken: outputMint,
+    sellAmount: String(amount), // raw units
+    slippageBps: String(slippageBps ?? 100),
+    taker: taker,
+    intentOnFilling: 'true',
+  };
+  const { data } = await axios.get(url, { params, timeout: 12000, headers: getZeroExHeaders() });
+  if (!data) throw new Error('0x: no quote');
+  return data; // expect { quoteId?, ... , tx?, instructions? }
+}
+async function zeroExBuild({ quote, taker }) {
+  // Try build endpoint first
+  const buildUrl = getZeroExBase() + '/build';
+  try {
+    const { data } = await axios.post(buildUrl, { ...quote, taker }, { timeout: 15000, headers: getZeroExHeaders() });
+    if (data?.transaction) return { txBase64: data.transaction };
+    if (data?.instructions) return { instructions: data.instructions, addressLookupTableAddresses: data.addressLookupTableAddresses };
+  } catch (e) {
+    // fall through to instructions endpoint
+  }
+  // Fallback: instructions endpoint
+  const instUrl = getZeroExBase() + '/swap-instructions';
+  const { data } = await axios.post(instUrl, { ...quote, taker }, { timeout: 15000, headers: getZeroExHeaders() });
+  if (data?.transaction) return { txBase64: data.transaction };
+  if (!data) throw new Error('0x: no instructions');
+  return { instructions: data.instructions, addressLookupTableAddresses: data.addressLookupTableAddresses };
+}
+async function assembleV0FromInstructions({ connection, owner, payload }) {
+  // payload: { instructions: base64[], addressLookupTableAddresses?: string[] }
+  const cuIxs = (payload.computeBudgetInstructions || []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
+  const setupIxs = (payload.setupInstructions || []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
+  const swapIx = payload.swapInstruction ? Transaction.from(Buffer.from(payload.swapInstruction, 'base64')).instructions[0] : null;
+  const cleanupIxs = (payload.cleanupInstruction ? [payload.cleanupInstruction] : []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
+  const instructions = [...cuIxs, ...setupIxs, ...(swapIx ? [swapIx] : []), ...cleanupIxs];
+  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  const tables = [];
+  const alts = payload.addressLookupTableAddresses || [];
+  for (const addr of alts) {
+    const { value } = await connection.getAddressLookupTable(new PublicKey(addr));
+    if (value) tables.push(value);
+  }
+  const message = new TransactionMessage({ payerKey: owner.publicKey, recentBlockhash: blockhash, instructions }).compileToV0Message(tables);
+  const vtx = new VersionedTransaction(message);
+  vtx.sign([owner]);
+  return vtx;
+}
 
 import {
   getAssociatedTokenAddressSync,
@@ -32,23 +134,108 @@ const {
 
 const WSOL = 'So11111111111111111111111111111111111111112';
 
-async function getQuote({ inputMint, outputMint, amount, slippageBps, txVersion }) {
+async function getRaydiumQuote({ inputMint, outputMint, amount, slippageBps, txVersion }) {
   const url = 'https://transaction-v1.raydium.io/compute/swap-base-in';
-  const { data } = await axios.get(
-    url,
-    {
-      params: {
-        inputMint,
-        outputMint,
-        amount: String(amount),
-        slippageBps: String(slippageBps),
-        txVersion,
-      },
-      timeout: 10000,
+  const { data } = await axios.get(url, {
+    params: {
+      inputMint,
+      outputMint,
+      amount: String(amount),
+      slippageBps: String(slippageBps),
+      txVersion,
     },
-  );
+    timeout: 10000,
+    headers: { 'user-agent': 'jupbot/1.0 (+sdkSwap)' },
+  });
   if (!data || !data.data) throw new Error('no compute quote');
   return data.data;
+}
+
+async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
+  const params = {
+    inputMint,
+    outputMint,
+    amount: String(amount),
+    slippageBps: String(slippageBps ?? 100),
+    // V6 API uses 'true' for boolean
+    onlyDirectRoutes: 'false',
+    asLegacyTransaction: 'false',
+  };
+  const headers = { 
+    'user-agent': 'jupbot/1.0 (+sdkSwap)',
+    'Accept': 'application/json'
+  };
+  
+  // Only use v6 endpoint
+  const url = 'https://quote-api.jup.ag/v6/quote';
+  
+  try {
+    const { data } = await axios.get(url, { params, timeout: 15000, headers });
+    if (!data) throw new Error('jupiter: no quote');
+    if (data.error || data.message) throw new Error(`jupiter: ${data.error || data.message}`);
+    return data; // quoteResponse
+  } catch (e) {
+    const msg = e?.response?.data || e?.message || String(e);
+    throw new Error(`Jupiter quote failed: ${JSON.stringify(msg).slice(0, 200)}`);
+  }
+}
+
+async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPriceMicroLamports = 0 }) {
+  const headers = { 'user-agent': 'jupbot/1.0 (+sdkSwap)' };
+  const urls = [ 'https://quote-api.jup.ag/v6/swap' ];
+  let lastErr;
+  for (const url of urls) {
+    try {
+      const { data } = await axios.post(url, {
+        quoteResponse,
+        userPublicKey,
+        wrapAndUnwrapSol: true,
+        dynamicComputeUnitLimit: true,
+        computeUnitPriceMicroLamports,
+        prioritizationFeeLamports: undefined,
+      }, { timeout: 15000, headers });
+      if (!data || !data.swapTransaction) throw new Error('jupiter: no swapTransaction');
+      return data.swapTransaction; // base64
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('jupiter: swap build failed');
+}
+
+async function buildJupiterSwapInstructionsTx({ connection, quoteResponse, userPublicKey, owner }) {
+  const headers = { 'user-agent': 'jupbot/1.0 (+sdkSwap)' };
+  const url = 'https://quote-api.jup.ag/v6/swap-instructions';
+  const { data } = await axios.post(url, {
+    quoteResponse,
+    userPublicKey,
+    wrapAndUnwrapSol: true,
+    dynamicComputeUnitLimit: true,
+  }, { timeout: 15000, headers });
+  if (!data) throw new Error('jupiter: no swap-instructions');
+  const ix = data;
+  const cuIxs = (ix.computeBudgetInstructions || []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
+  const setupIxs = (ix.setupInstructions || []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
+  const swapIx = Transaction.from(Buffer.from(ix.swapInstruction, 'base64')).instructions[0];
+  const cleanupIxs = (ix.cleanupInstruction ? [ix.cleanupInstruction] : []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
+
+  const lookupAddresses = ix.addressLookupTableAddresses || [];
+  const { blockhash } = await connection.getLatestBlockhash('confirmed');
+  const tables = [];
+  for (const addr of lookupAddresses) {
+    const { value } = await connection.getAddressLookupTable(new PublicKey(addr));
+    if (value) tables.push(value);
+  }
+
+  const message = new TransactionMessage({
+    payerKey: owner.publicKey,
+    recentBlockhash: blockhash,
+    instructions: [...cuIxs, ...setupIxs, swapIx, ...cleanupIxs],
+  }).compileToV0Message(tables);
+
+  const vtx = new VersionedTransaction(message);
+  vtx.sign([owner]);
+  return vtx;
 }
 
 async function ensureAtaIx(connection, owner, mint, payer) {
@@ -126,6 +313,7 @@ export async function runSdkSwap({
   txVersion = 'V0',
   maxAttempts = 10,
 }) {
+  const forceJup = process.env.FORCE_JUPITER === '1';
   const secret = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
   const owner = Keypair.fromSecretKey(Uint8Array.from(secret));
   const connection = new Connection(rpcUrl, 'confirmed');
@@ -133,13 +321,101 @@ export async function runSdkSwap({
   const ray = await Raydium.load({ connection, owner, disableLoadToken: false });
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const quote = await getQuote({
-      inputMint,
-      outputMint,
-      amount: amountLamports,
-      slippageBps,
-      txVersion: txVersion === 'LEGACY' ? 'LEGACY' : 'V0',
-    });
+    // Primary: 0x (if api key present)
+    if (process.env.ZEROX_API_KEY) {
+      try {
+        const q = await retryRpc(() => zeroExQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() }), { tries: 4, baseMs: 400 });
+        try {
+          const built = await retryRpc(() => zeroExBuild({ quote: q, taker: owner.publicKey.toBase58() }), { tries: 3, baseMs: 600 });
+          if (built.txBase64) {
+            const buf = Buffer.from(built.txBase64, 'base64');
+            try {
+              let vtx = VersionedTransaction.deserialize(buf);
+              vtx.sign([owner]);
+              const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+              const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
+              await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+              return [sig];
+            } catch {
+              const ltx = Transaction.from(buf);
+              const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+              const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: sp }));
+              await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+              return [sig];
+            }
+          } else if (built.instructions) {
+            const vtx = await assembleV0FromInstructions({ connection, owner, payload: built });
+            const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+            const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
+            await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+            return [sig];
+          }
+        } catch (e) {
+          // 0x build failed → fall through to Jupiter
+        }
+      } catch (e) {
+        // 0x quote failed → fall through to Jupiter
+      }
+    }
+
+    // FORCE Jupiter path when requested
+    if (forceJup) {
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps });
+      try {
+        const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
+        const buf = Buffer.from(swapB64, 'base64');
+        try {
+          let vtx = VersionedTransaction.deserialize(buf);
+          vtx.sign([owner]);
+          const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+          const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
+          await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+          return [sig];
+        } catch {
+          const ltx = Transaction.from(buf);
+          const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+          const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: sp }));
+          await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+          return [sig];
+        }
+      } catch (e) {
+        // Fallback to swap-instructions assembly
+        const vtx = await buildJupiterSwapInstructionsTx({ connection, quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), owner });
+        const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+        const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
+        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+        return [sig];
+      }
+    }
+
+    let quote;
+    try {
+      quote = await getRaydiumQuote({
+        inputMint,
+        outputMint,
+        amount: amountLamports,
+        slippageBps,
+        txVersion: txVersion === 'LEGACY' ? 'LEGACY' : 'V0',
+      });
+    } catch (e) {
+      // Fallback to Jupiter path
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps });
+      const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
+      const buf = Buffer.from(swapB64, 'base64');
+      let tx;
+      try {
+        tx = VersionedTransaction.deserialize(buf);
+        tx.sign([owner]);
+        const sig = await retryRpc(() => connection.sendRawTransaction(tx.serialize(), { skipPreflight: false }));
+        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+        return [sig];
+      } catch {
+        const ltx = Transaction.from(buf);
+        const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: false }));
+        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+        return [sig];
+      }
+    }
 
     const route = quote.routePlan || [];
 
@@ -202,67 +478,22 @@ export async function runSdkSwap({
     if (!poolOwnerInfo) throw new Error(`pool not found for id ${poolId}`);
 
     if (poolOwnerInfo.owner.equals(ALL_PROGRAM_ID.AMM_V4)) {
-      const { isAmmV4, poolKeys, mintA, mintB } = await fetchAmmV4PoolKeys(connection, poolId);
-      if (!isAmmV4) throw new Error('pool owner mismatch (expected amm v4)');
-
-      const inMint = new PublicKey(inputMint);
-      const outMint = new PublicKey(outputMint);
-
-      if (!inMint.equals(mintA) && !inMint.equals(mintB)) {
-        throw new Error(`input mint ${inMint.toBase58()} not in pool mints ${mintA.toBase58()} / ${mintB.toBase58()}`);
+      // Fallback to Jupiter for AMM v4 pools to avoid SDK mismatches (Serum authority helpers etc.)
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps });
+      const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
+      const buf = Buffer.from(swapB64, 'base64');
+      try {
+        let vtx = VersionedTransaction.deserialize(buf);
+        vtx.sign([owner]);
+        const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: false }));
+        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+        return [sig];
+      } catch {
+        const ltx = Transaction.from(buf);
+        const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: false }));
+        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+        return [sig];
       }
-      if (!outMint.equals(mintA) && !outMint.equals(mintB)) {
-        throw new Error(`output mint ${outMint.toBase58()} not in pool mints ${mintA.toBase58()} / ${mintB.toBase58()}`);
-      }
-
-      if (inputMint !== WSOL) {
-        throw new Error('AMM v4 path currently expects SOL input via WSOL mint');
-      }
-
-      const wsol = await createWSolAccountInstructions({
-        connection,
-        payer: owner.publicKey,
-        owner: owner.publicKey,
-        amount: new BN(String(amountLamports)),
-        commitment: 'confirmed',
-      });
-
-      const { ata: outAta, createIx: createOutAtaIx } = await ensureAtaIx(connection, owner.publicKey, outMint, owner.publicKey);
-
-      const amountIn = new BN(String(amountLamports));
-      const minAmountOut = new BN(String(quote.otherAmountThreshold || '0'));
-      if (minAmountOut.lten(0)) throw new Error('quote.otherAmountThreshold missing/invalid');
-
-      const swapIx = makeAMMSwapInstruction({
-        poolKeys,
-        version: 4,
-        fixedSide: 'in',
-        amountIn,
-        amountOut: minAmountOut,
-        userKeys: {
-          tokenAccountIn: wsol.addresses.newAccount,
-          tokenAccountOut: outAta,
-          owner: owner.publicKey,
-        },
-      });
-
-      const cb = (await ray.utils1216.getComputeBudgetConfig?.()) || { units: 600000, microLamports: 5000 };
-
-      const tx = new Transaction();
-      tx.feePayer = owner.publicKey;
-      tx.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: cb.units }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: cb.microLamports }),
-      );
-
-      tx.add(...wsol.instructions);
-      if (createOutAtaIx) tx.add(createOutAtaIx);
-      tx.add(swapIx);
-      if (wsol.endInstructions?.length) tx.add(...wsol.endInstructions);
-
-      const sig = await connection.sendTransaction(tx, [owner], { skipPreflight: false });
-      await connection.confirmTransaction(sig, 'confirmed');
-      return [sig];
     }
 
     // CLMM / CPMM using SDK builders
