@@ -165,6 +165,9 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
     'user-agent': 'jupbot/1.0 (+sdkSwap)',
     'Accept': 'application/json'
   };
+  if (process.env.JUPITER_API_KEY) {
+    headers['Authorization'] = `Bearer ${process.env.JUPITER_API_KEY}`;
+  }
   
   // Use Jupiter v6 endpoint
   const url = 'https://api.jup.ag/v6/quote';
@@ -181,7 +184,10 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
 }
 
 async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPriceMicroLamports = 0 }) {
-  const headers = { 'user-agent': 'jupbot/1.0 (+sdkSwap)' };
+  const headers = { 
+    'user-agent': 'jupbot/1.0 (+sdkSwap)',
+    'Authorization': process.env.JUPITER_API_KEY ? `Bearer ${process.env.JUPITER_API_KEY}` : ''
+  };
   const urls = [ 'https://api.jup.ag/v6/swap' ];
   let lastErr;
   for (const url of urls) {
@@ -204,7 +210,10 @@ async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPri
 }
 
 async function buildJupiterSwapInstructionsTx({ connection, quoteResponse, userPublicKey, owner }) {
-  const headers = { 'user-agent': 'jupbot/1.0 (+sdkSwap)' };
+  const headers = { 
+    'user-agent': 'jupbot/1.0 (+sdkSwap)',
+    'Authorization': process.env.JUPITER_API_KEY ? `Bearer ${process.env.JUPITER_API_KEY}` : ''
+  };
   const url = 'https://quote-api.jup.ag/v6/swap-instructions';
   const { data } = await axios.post(url, {
     quoteResponse,

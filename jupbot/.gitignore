@@ -1,0 +1,5 @@
+.env
+cycle.log
+cycle.pid
+cycle_state.json
+cycle_trades.json

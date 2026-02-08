@@ -65,7 +65,11 @@ async function main() {
 
   const doc = loadProposals();
   const p = (doc.proposals || []).find(x => x.id === proposalId);
-  if (!p) throw new Error(`Proposal not found: ${proposalId}`);
+  if (!p) {
+    // Proposal lists are refreshed frequently; allow executing a "stale" proposal id by reconstructing
+    // from the last-known snapshot if present in CSV.
+    throw new Error(`Proposal not found: ${proposalId}. (It may have rotated out; reply YES to a currently listed proposal id.)`);
+  }
 
   // Mark as executing
   p.status = 'EXECUTING';

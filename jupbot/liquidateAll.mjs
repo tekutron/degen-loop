@@ -1,5 +1,7 @@
 // liquidateAll.mjs
-// Sells ALL SPL tokens in the bot wallet back to wSOL (live on-chain query)
+// Sells 100% of ALL SPL tokens in the bot wallet back to wSOL
+// This includes any mistakenly acquired stablecoins (USDC, USDT, etc.)
+// Live on-chain query - sells every token with balance > 0
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -42,6 +44,8 @@ async function main() {
   const keypair = Keypair.fromSecretKey(Uint8Array.from(secret));
   const connection = new Connection(rpcUrl, 'confirmed');
 
+  console.log('💰 Liquidating 100% of all SPL tokens → wSOL');
+  
   // Get all token accounts with balance > 0
   const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
     keypair.publicKey,
@@ -50,6 +54,7 @@ async function main() {
   );
 
   const sells = [];
+  let skipped = 0;
 
   for (const { account } of tokenAccounts.value) {
     const parsed = account.data.parsed;
@@ -61,12 +66,19 @@ async function main() {
     const balance = BigInt(amountRaw);
 
     // Skip if zero balance
-    if (balance === 0n) continue;
+    if (balance === 0n) {
+      skipped++;
+      continue;
+    }
 
-    // Skip wSOL (we're selling TO wSOL)
-    if (mint === WSOL) continue;
+    // Skip wSOL (we're selling TO wSOL, not selling wSOL itself)
+    if (mint === WSOL) {
+      console.log(`⏭️  Skipping wSOL (target token)`);
+      skipped++;
+      continue;
+    }
 
-    console.log(`Selling ${mint}: ${amountRaw} raw`);
+    console.log(`📤 Selling 100% of ${mint}: ${amountRaw} raw`);
 
     const env = {
       SOLANA_RPC: rpcUrl,
@@ -91,10 +103,18 @@ async function main() {
   }
 
   if (sells.length === 0) {
-    console.log('No tokens to sell (wallet empty or only wSOL)');
+    console.log('\n✅ No tokens to liquidate (wallet only contains wSOL)');
+    console.log(`   Skipped ${skipped} empty/wSOL accounts`);
+  } else {
+    console.log(`\n✅ Liquidation complete: ${sells.length} tokens sold, ${skipped} skipped`);
+    const successful = sells.filter(s => s.success).length;
+    const failed = sells.length - successful;
+    if (failed > 0) {
+      console.log(`   ⚠️  ${failed} sell(s) failed - check errors above`);
+    }
   }
 
-  console.log(JSON.stringify({ ok: true, liquidated: sells.length, sells }, null, 2));
+  console.log(JSON.stringify({ ok: true, liquidated: sells.length, skipped, sells }, null, 2));
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });

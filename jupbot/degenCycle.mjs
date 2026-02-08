@@ -60,8 +60,9 @@ async function execNode(file, env) { const { spawn } = await import('node:child_
 function extractSig(stdout) { const m = stdout.match(/\b[1-9A-HJ-NP-Za-km-z]{80,120}\b/); return m ? m[0] : ''; }
 async function sumTokenRaw(connection, ownerPk, mintStr) { const mint = new PublicKey(mintStr); const resp = await connection.getTokenAccountsByOwner(ownerPk, { mint }, 'confirmed'); let total = 0n; for (const { pubkey } of resp.value) { const bal = await connection.getTokenAccountBalance(pubkey, 'confirmed'); total += BigInt(bal.value.amount); } return total; }
 async function fetchRaydiumTopVolume1h() {
-  // Fetch established Solana tokens with Raydium pairs, sorted by 1h volume
+  // Fetch TOP VOLUME COINS - established Solana tokens with Raydium pairs, sorted by 1h volume
   // Using major tokens + recent boosts that have actual Raydium liquidity
+  // Returns: Top 10 tokens by 1-hour trading volume
   const majorTokens = [
     'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', // JUP
     'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL', // JTO  
@@ -108,6 +109,9 @@ async function fetchRaydiumTopVolume1h() {
       raydiumPairs.sort((a, b) => Number(b?.volume?.h1 ?? 0) - Number(a?.volume?.h1 ?? 0));
       const p = raydiumPairs[0];
       if (!p?.baseToken?.address) continue;
+      
+      // Skip stablecoins at fetch time
+      if (STABLECOINS.has(p.baseToken.address)) continue;
       
       // Skip if we already have this token
       if (results.some(r => r.mint === p.baseToken.address)) continue;
@@ -160,7 +164,7 @@ async function main() {
       trending = await fetchRaydiumTopVolume1h();
       nextTrendingAt = now + trendingRefreshMs;
       if (trending.length === 0) { writeState({ stage: 'NO_RAYDIUM_PAIRS' }); await sleep(5000); continue; }
-      idx = idx % trending.length; writeState({ trending, nextTrendingAt, idx });
+      idx = idx % trending.length; writeState({ trending, trendingLabel: 'Top Volume Coins (1h)', nextTrendingAt, idx });
     }
 
     const t = trending[idx];
