@@ -3,7 +3,7 @@ import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import fs from 'fs';
 
-const rpc = process.env.HELIUS_RPC_URL || 'https://mainnet.helius-rpc.com/?api-key=02246b9a-a724-4896-a95d-fbb2cd72ddad';
+const rpc = process.env.HELIUS_RPC_URL || process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
 const connection = new Connection(rpc, 'confirmed');
 
 const kp = JSON.parse(fs.readFileSync('wallets/generated_keypair.json', 'utf8'));

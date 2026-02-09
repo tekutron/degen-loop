@@ -1,5 +1,29 @@
+# Environment and secrets
 .env
+.env.local
+.env.*.local
+
+# Runtime state files (may contain API keys/wallet addresses)
 cycle.log
 cycle.pid
 cycle_state.json
 cycle_trades.json
+positions.json
+trade_proposals.json
+
+# Wallet files (NEVER commit private keys!)
+wallets/
+*.json
+!package.json
+!package-lock.json
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
