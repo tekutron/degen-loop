@@ -1,22 +1,33 @@
 {
   "name": "jupbot",
-  "version": "1.0.0",
-  "description": "Raydium-only swap helper",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "Solana trading bot using Raydium pools and Jupiter Ultra Swap API",
+  "main": "degenCycle.mjs",
   "scripts": {
-    "start": "node swap.js",
+    "start": "node degenCycle.mjs",
+    "bot": "node degenCycle.mjs",
+    "check": "node checkWallet.mjs",
+    "test-swap": "node testSwap.mjs",
+    "liquidate": "MAIN_WALLET=1 node liquidateAll.mjs",
+    "unwrap": "node unwrapSol.mjs",
     "swap:raydium": "node raydiumSwap.js",
     "swap:sdk": "node sdkSwap.js",
     "trade:scan": "node tradeBot.mjs",
     "trade:execute": "node executeProposal.mjs",
     "trade:sell": "node executeSellProposal.mjs",
     "trade:monitor": "node monitorExit.mjs",
-    "trade:loop": "node tradeLoop.mjs",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "trade:loop": "node tradeLoop.mjs"
   },
-  "keywords": [],
+  "keywords": [
+    "solana",
+    "trading-bot",
+    "raydium",
+    "jupiter",
+    "dex",
+    "automated-trading"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@raydium-io/raydium-sdk-v2": "^0.2.32-alpha",
     "@solana/spl-token": "0.3.11",
