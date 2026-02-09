@@ -151,7 +151,7 @@ async function getRaydiumQuote({ inputMint, outputMint, amount, slippageBps, txV
   return data.data;
 }
 
-async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps, taker }) {
+async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps, taker, priorityFeeLamports }) {
   const params = {
     inputMint,
     outputMint,
@@ -160,6 +160,12 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps, tak
     mode: 'ExactIn',
     taker: taker || '',
   };
+  
+  // Add priority fee if specified (0.001 SOL = 1,000,000 lamports)
+  if (priorityFeeLamports) {
+    params.prioritizationFeeLamports = String(priorityFeeLamports);
+  }
+  
   const headers = { 
     'user-agent': 'jupbot/1.0 (+sdkSwap)',
     'Accept': 'application/json'
@@ -320,7 +326,7 @@ export async function runSdkSwap({
 
     // FORCE Jupiter path when requested
     if (forceJup) {
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 1000000 });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       
@@ -328,7 +334,11 @@ export async function runSdkSwap({
       let vtx = VersionedTransaction.deserialize(buf);
       vtx.sign([owner]);
       const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
-      const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
+      const sig = await connection.sendRawTransaction(vtx.serialize(), { 
+        skipPreflight: sp,
+        maxRetries: 3,
+        preflightCommitment: 'confirmed'
+      });
       await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
       return [sig];
     }
@@ -344,7 +354,7 @@ export async function runSdkSwap({
       });
     } catch (e) {
       // Fallback to Jupiter path
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 1000000 });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       
@@ -418,7 +428,7 @@ export async function runSdkSwap({
 
     if (poolOwnerInfo.owner.equals(ALL_PROGRAM_ID.AMM_V4)) {
       // Fallback to Jupiter for AMM v4 pools to avoid SDK mismatches (Serum authority helpers etc.)
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 1000000 });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       
