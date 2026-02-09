@@ -1,0 +1,10 @@
+const { Keypair } = require('@solana/web3.js');
+const fs = require('fs');
+const path = require('path');
+const outDir = path.join(__dirname, '..', 'wallets');
+fs.mkdirSync(outDir, { recursive: true });
+const kp = Keypair.generate();
+const outPath = path.join(outDir, 'generated_keypair.json');
+fs.writeFileSync(outPath, JSON.stringify(Array.from(kp.secretKey)));
+console.log('PUBLIC_KEY', kp.publicKey.toBase58());
+console.log('SECRET_JSON_PATH', outPath);

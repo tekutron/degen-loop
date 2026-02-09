@@ -151,15 +151,14 @@ async function getRaydiumQuote({ inputMint, outputMint, amount, slippageBps, txV
   return data.data;
 }
 
-async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
+async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps, taker }) {
   const params = {
     inputMint,
     outputMint,
     amount: String(amount),
     slippageBps: String(slippageBps ?? 100),
-    // V6 API uses 'true' for boolean
-    onlyDirectRoutes: 'false',
-    asLegacyTransaction: 'false',
+    mode: 'ExactIn',
+    taker: taker || '',
   };
   const headers = { 
     'user-agent': 'jupbot/1.0 (+sdkSwap)',
@@ -169,86 +168,34 @@ async function getJupiterQuote({ inputMint, outputMint, amount, slippageBps }) {
     headers['x-api-key'] = process.env.JUPITER_API_KEY;
   }
   
-  // Use Jupiter v6 endpoint
-  const url = 'https://api.jup.ag/v6/quote';
+  // Use Jupiter Ultra API
+  const url = 'https://api.jup.ag/ultra/v1/order';
   
   try {
     const { data } = await axios.get(url, { params, timeout: 15000, headers });
-    if (!data) throw new Error('jupiter: no quote');
-    if (data.error || data.message) throw new Error(`jupiter: ${data.error || data.message}`);
-    return data; // quoteResponse
+    if (!data) throw new Error('jupiter: no order');
+    if (data.error) throw new Error(`jupiter: ${JSON.stringify(data.error)}`);
+    if (data.requestId && data.error) throw new Error(`jupiter: ${data.error}`);
+    return data; // Ultra order response with transaction
   } catch (e) {
     const msg = e?.response?.data || e?.message || String(e);
-    throw new Error(`Jupiter quote failed: ${JSON.stringify(msg).slice(0, 200)}`);
+    throw new Error(`Jupiter Ultra order failed: ${JSON.stringify(msg).slice(0, 200)}`);
   }
 }
 
 async function buildJupiterSwapTx({ quoteResponse, userPublicKey, computeUnitPriceMicroLamports = 0 }) {
-  const headers = { 
-    'user-agent': 'jupbot/1.0 (+sdkSwap)'
-  };
-  if (process.env.JUPITER_API_KEY) {
-    headers['x-api-key'] = process.env.JUPITER_API_KEY;
+  // Ultra API returns the transaction directly in the order response
+  if (!quoteResponse || !quoteResponse.transaction) {
+    throw new Error('jupiter: no transaction in order response');
   }
-  const urls = [ 'https://api.jup.ag/v6/swap' ];
-  let lastErr;
-  for (const url of urls) {
-    try {
-      const { data } = await axios.post(url, {
-        quoteResponse,
-        userPublicKey,
-        wrapAndUnwrapSol: true,
-        dynamicComputeUnitLimit: true,
-        computeUnitPriceMicroLamports,
-        prioritizationFeeLamports: undefined,
-      }, { timeout: 15000, headers });
-      if (!data || !data.swapTransaction) throw new Error('jupiter: no swapTransaction');
-      return data.swapTransaction; // base64
-    } catch (e) {
-      lastErr = e;
-    }
-  }
-  throw lastErr || new Error('jupiter: swap build failed');
+  // The transaction is already built, just return it
+  return quoteResponse.transaction; // base64
 }
 
 async function buildJupiterSwapInstructionsTx({ connection, quoteResponse, userPublicKey, owner }) {
-  const headers = { 
-    'user-agent': 'jupbot/1.0 (+sdkSwap)'
-  };
-  if (process.env.JUPITER_API_KEY) {
-    headers['x-api-key'] = process.env.JUPITER_API_KEY;
-  }
-  const url = 'https://quote-api.jup.ag/v6/swap-instructions';
-  const { data } = await axios.post(url, {
-    quoteResponse,
-    userPublicKey,
-    wrapAndUnwrapSol: true,
-    dynamicComputeUnitLimit: true,
-  }, { timeout: 15000, headers });
-  if (!data) throw new Error('jupiter: no swap-instructions');
-  const ix = data;
-  const cuIxs = (ix.computeBudgetInstructions || []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
-  const setupIxs = (ix.setupInstructions || []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
-  const swapIx = Transaction.from(Buffer.from(ix.swapInstruction, 'base64')).instructions[0];
-  const cleanupIxs = (ix.cleanupInstruction ? [ix.cleanupInstruction] : []).map((b64) => Transaction.from(Buffer.from(b64, 'base64')).instructions).flat();
-
-  const lookupAddresses = ix.addressLookupTableAddresses || [];
-  const { blockhash } = await connection.getLatestBlockhash('confirmed');
-  const tables = [];
-  for (const addr of lookupAddresses) {
-    const { value } = await connection.getAddressLookupTable(new PublicKey(addr));
-    if (value) tables.push(value);
-  }
-
-  const message = new TransactionMessage({
-    payerKey: owner.publicKey,
-    recentBlockhash: blockhash,
-    instructions: [...cuIxs, ...setupIxs, swapIx, ...cleanupIxs],
-  }).compileToV0Message(tables);
-
-  const vtx = new VersionedTransaction(message);
-  vtx.sign([owner]);
-  return vtx;
+  // Ultra API doesn't support swap-instructions endpoint
+  // The transaction is already built in the order response
+  throw new Error('jupiter: swap-instructions not supported with Ultra API - transaction should be in order response');
 }
 
 async function ensureAtaIx(connection, owner, mint, payer) {
@@ -373,7 +320,7 @@ export async function runSdkSwap({
 
     // FORCE Jupiter path when requested
     if (forceJup) {
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
       try {
         const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
         const buf = Buffer.from(swapB64, 'base64');
@@ -412,7 +359,7 @@ export async function runSdkSwap({
       });
     } catch (e) {
       // Fallback to Jupiter path
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       let tx;
@@ -492,7 +439,7 @@ export async function runSdkSwap({
 
     if (poolOwnerInfo.owner.equals(ALL_PROGRAM_ID.AMM_V4)) {
       // Fallback to Jupiter for AMM v4 pools to avoid SDK mismatches (Serum authority helpers etc.)
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       try {

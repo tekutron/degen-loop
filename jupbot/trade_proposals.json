@@ -1,0 +1,15 @@
+{
+  "updatedAt": "2026-02-05T18:52:00.000Z",
+  "proposals": [
+    {
+      "id": "seed-1",
+      "status": "PROPOSED",
+      "pair": "wSOL/USDC",
+      "inputMint": "So11111111111111111111111111111111111111112",
+      "outputMint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      "slippageBps": 50,
+      "amountRaw": 1000000,
+      "txVersion": "V0"
+    }
+  ]
+}

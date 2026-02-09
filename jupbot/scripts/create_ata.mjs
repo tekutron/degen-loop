@@ -1,0 +1,23 @@
+import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import fs from 'fs';
+
+const rpc = process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
+const walletPath = process.env.SWAP_WALLET;
+const mintStr = process.env.MINT;
+if (!walletPath || !mintStr) throw new Error('Set SWAP_WALLET and MINT');
+const secret = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
+const kp = Keypair.fromSecretKey(Uint8Array.from(secret));
+const connection = new Connection(rpc, 'confirmed');
+const mint = new PublicKey(mintStr);
+const ata = getAssociatedTokenAddressSync(mint, kp.publicKey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+const ix = createAssociatedTokenAccountInstruction(kp.publicKey, ata, kp.publicKey, mint, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID);
+const tx = new Transaction().add(ix);
+tx.feePayer = kp.publicKey;
+const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('finalized');
+tx.recentBlockhash = blockhash;
+tx.sign(kp);
+const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 3 });
+await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+console.log('ATA:', ata.toBase58());
+console.log('TX:', sig);
