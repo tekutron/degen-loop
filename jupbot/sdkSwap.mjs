@@ -321,31 +321,16 @@ export async function runSdkSwap({
     // FORCE Jupiter path when requested
     if (forceJup) {
       const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
-      try {
-        const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
-        const buf = Buffer.from(swapB64, 'base64');
-        try {
-          let vtx = VersionedTransaction.deserialize(buf);
-          vtx.sign([owner]);
-          const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
-          const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
-          await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-          return [sig];
-        } catch {
-          const ltx = Transaction.from(buf);
-          const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
-          const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: sp }));
-          await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-          return [sig];
-        }
-      } catch (e) {
-        // Fallback to swap-instructions assembly
-        const vtx = await buildJupiterSwapInstructionsTx({ connection, quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), owner });
-        const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
-        const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
-        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-        return [sig];
-      }
+      const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
+      const buf = Buffer.from(swapB64, 'base64');
+      
+      // Ultra API always returns versioned transactions
+      let vtx = VersionedTransaction.deserialize(buf);
+      vtx.sign([owner]);
+      const sp = process.env.SKIP_PREFLIGHT === '0' ? false : true;
+      const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: sp }));
+      await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+      return [sig];
     }
 
     let quote;
@@ -362,19 +347,13 @@ export async function runSdkSwap({
       const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
-      let tx;
-      try {
-        tx = VersionedTransaction.deserialize(buf);
-        tx.sign([owner]);
-        const sig = await retryRpc(() => connection.sendRawTransaction(tx.serialize(), { skipPreflight: false }));
-        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-        return [sig];
-      } catch {
-        const ltx = Transaction.from(buf);
-        const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: false }));
-        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-        return [sig];
-      }
+      
+      // Ultra API always returns versioned transactions
+      let tx = VersionedTransaction.deserialize(buf);
+      tx.sign([owner]);
+      const sig = await retryRpc(() => connection.sendRawTransaction(tx.serialize(), { skipPreflight: false }));
+      await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+      return [sig];
     }
 
     const route = quote.routePlan || [];
@@ -442,18 +421,13 @@ export async function runSdkSwap({
       const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58() });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
-      try {
-        let vtx = VersionedTransaction.deserialize(buf);
-        vtx.sign([owner]);
-        const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: false }));
-        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-        return [sig];
-      } catch {
-        const ltx = Transaction.from(buf);
-        const sig = await retryRpc(() => connection.sendTransaction(ltx, [owner], { skipPreflight: false }));
-        await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
-        return [sig];
-      }
+      
+      // Ultra API always returns versioned transactions
+      let vtx = VersionedTransaction.deserialize(buf);
+      vtx.sign([owner]);
+      const sig = await retryRpc(() => connection.sendRawTransaction(vtx.serialize(), { skipPreflight: false }));
+      await retryRpc(() => connection.confirmTransaction(sig, 'confirmed'));
+      return [sig];
     }
 
     // CLMM / CPMM using SDK builders
