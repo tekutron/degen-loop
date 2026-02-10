@@ -59,15 +59,119 @@ function mustEnv(name) { const v = process.env[name]; if (!v) throw new Error(`M
 async function execNode(file, env) { const { spawn } = await import('node:child_process'); return await new Promise((resolve, reject) => { const p = spawn('node', [file], { cwd: HERE, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] }); let out = ''; let err = ''; p.stdout.on('data', (d) => (out += d.toString())); p.stderr.on('data', (d) => (err += d.toString())); p.on('close', (code) => { if (code === 0) return resolve({ out, err }); reject(new Error(`Command failed (${code}): node ${file}\nSTDOUT:\n${out}\nSTDERR:\n${err}`)); }); }); }
 function extractSig(stdout) { const m = stdout.match(/\b[1-9A-HJ-NP-Za-km-z]{80,120}\b/); return m ? m[0] : ''; }
 async function sumTokenRaw(connection, ownerPk, mintStr) { const mint = new PublicKey(mintStr); const resp = await connection.getTokenAccountsByOwner(ownerPk, { mint }, 'confirmed'); let total = 0n; for (const { pubkey } of resp.value) { const bal = await connection.getTokenAccountBalance(pubkey, 'confirmed'); total += BigInt(bal.value.amount); } return total; }
-async function loadHotTrendingTokens() {
-  // Load curated hot trending memes from trending_tokens_feb9.json
-  // Returns: Curated list of trending Solana meme tokens
-  const trendingFile = path.join(HERE, 'trending_tokens_feb9.json');
+async function fetchHotTrendingMemes() {
+  // Fetch LIVE hot trending memes from DexScreener
+  // Strategy: 60% Tier 2 (stable activity + good liquidity) / 40% High Risk (high momentum)
+  // Returns: Fresh list of 15 trending Solana meme tokens
   
+  console.log('🔥 Fetching fresh hot trending memes from DexScreener...');
+  
+  try {
+    // Get boosted/trending tokens from DexScreener
+    const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
+    if (!boostsRes.ok) throw new Error('DexScreener boosts API failed');
+    
+    const boosts = await boostsRes.json();
+    const solTokens = boosts.filter((b) => 
+      (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress
+    );
+    
+    const candidates = [];
+    
+    // Fetch detailed pair data for each token
+    for (const boost of solTokens.slice(0, 50)) {
+      try {
+        const res = await fetch(TOKEN_URL(boost.tokenAddress), { cache: 'no-store' });
+        if (!res.ok) continue;
+        
+        const json = await res.json();
+        const pairs = Array.isArray(json?.pairs) ? json.pairs : [];
+        
+        // Get best Solana pair by volume
+        const solPairs = pairs.filter((p) => (p?.chainId ?? '').toLowerCase() === 'solana');
+        if (solPairs.length === 0) continue;
+        
+        solPairs.sort((a, b) => Number(b?.volume?.h24 ?? 0) - Number(a?.volume?.h24 ?? 0));
+        const p = solPairs[0];
+        
+        const mint = p?.baseToken?.address;
+        if (!mint || STABLECOINS.has(mint)) continue;
+        
+        const volumeH1 = Number(p?.volume?.h1 ?? 0);
+        const volumeH24 = Number(p?.volume?.h24 ?? 0);
+        const liquidityUsd = Number(p?.liquidity?.usd ?? 0);
+        const priceChange1h = Number(p?.priceChange?.h1 ?? 0);
+        const priceChange24h = Number(p?.priceChange?.h24 ?? 0);
+        
+        // Filter: Minimum volume and liquidity
+        if (volumeH24 < 100000) continue; // $100K min 24h volume
+        if (liquidityUsd < 20000) continue; // $20K min liquidity
+        
+        // Calculate tier based on stability and momentum
+        let tier = '1'; // High Risk by default
+        
+        // Tier 2: Strong volume + good liquidity + moderate volatility
+        if (
+          volumeH24 > 500000 && // $500K+ volume
+          liquidityUsd > 50000 && // $50K+ liquidity
+          Math.abs(priceChange24h) < 100 // Less than 100% 24h swing
+        ) {
+          tier = '2';
+        }
+        
+        candidates.push({
+          mint,
+          symbol: p?.baseToken?.symbol || '???',
+          name: p?.baseToken?.name || 'Unknown',
+          priceUsd: Number(p.priceUsd ?? 0),
+          dexUrl: p.url,
+          volumeH1,
+          volumeH24,
+          liquidityUsd,
+          priceChange1h,
+          priceChange24h,
+          tier,
+        });
+      } catch (err) {
+        // Skip failed tokens
+      }
+    }
+    
+    if (candidates.length === 0) {
+      console.log('⚠️  No qualifying tokens found, using fallback list');
+      return loadFallbackTokens();
+    }
+    
+    // Split into tiers
+    const tier2 = candidates.filter(t => t.tier === '2');
+    const tier1 = candidates.filter(t => t.tier === '1');
+    
+    // Sort each tier by 24h volume
+    tier2.sort((a, b) => b.volumeH24 - a.volumeH24);
+    tier1.sort((a, b) => b.volumeH24 - a.volumeH24);
+    
+    // Build 60/40 mix (9 Tier 2 + 6 High Risk = 15 total)
+    const result = [
+      ...tier2.slice(0, 9),
+      ...tier1.slice(0, 6),
+    ];
+    
+    console.log(`✅ Fetched ${result.length} hot trending memes (${tier2.slice(0, 9).length} Tier 2, ${tier1.slice(0, 6).length} High Risk)`);
+    return result;
+    
+  } catch (err) {
+    console.error('❌ Failed to fetch trending memes:', err.message);
+    return loadFallbackTokens();
+  }
+}
+
+function loadFallbackTokens() {
+  // Fallback: Load from static file if API fails
+  const trendingFile = path.join(HERE, 'trending_tokens_feb9.json');
   try {
     const data = JSON.parse(fs.readFileSync(trendingFile, 'utf8'));
     const tokens = Array.isArray(data?.trending) ? data.trending : [];
-    
+    console.log(`📂 Loaded ${tokens.length} tokens from fallback file`);
     return tokens.map((t) => ({
       mint: t.mint,
       symbol: t.symbol,
@@ -79,8 +183,7 @@ async function loadHotTrendingTokens() {
       liquidityUsd: Number(t.liquidityUsd ?? 0),
       tier: t.tier,
     }));
-  } catch (err) {
-    console.error('Failed to load hot trending tokens:', err.message);
+  } catch {
     return [];
   }
 }
@@ -110,12 +213,19 @@ async function main() {
 
   while (true) {
     const now = Date.now();
-    if (now >= nextTrendingAt || trending.length === 0) {
-      writeState({ stage: 'LOAD_HOT_TRENDING' });
-      trending = await loadHotTrendingTokens();
+    // Refresh trending list if: 1) empty, 2) timeout reached, OR 3) wrapped back to start (idx=0 after completing cycle)
+    const wrappedToStart = (idx === 0 && trending.length > 0);
+    const shouldRefresh = trending.length === 0 || now >= nextTrendingAt || wrappedToStart;
+    
+    if (shouldRefresh) {
+      writeState({ stage: 'FETCH_FRESH_TRENDING' });
+      console.log(wrappedToStart ? '🔄 End of list reached, refreshing...' : '🔥 Loading fresh trending tokens...');
+      trending = await fetchHotTrendingMemes();
       nextTrendingAt = now + trendingRefreshMs;
       if (trending.length === 0) { writeState({ stage: 'NO_TRENDING_TOKENS' }); await sleep(5000); continue; }
-      idx = idx % trending.length; writeState({ trending, trendingLabel: 'Hot Trending Memes', nextTrendingAt, idx });
+      idx = 0; // Start from beginning of new list
+      const prevState = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : {};
+      writeState({ trending, trendingLabel: 'Hot Trending Memes (Live)', nextTrendingAt, idx, listRefreshCount: (prevState?.listRefreshCount ?? 0) + 1 });
     }
 
     const t = trending[idx];
