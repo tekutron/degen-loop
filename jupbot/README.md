@@ -79,18 +79,21 @@ This creates `wallets/generated_keypair.json`. **Fund it with SOL** before tradi
 
 ### Bot Configuration
 
-Edit `cycle_state.json` for trading parameters:
+Edit `.env` file for trading parameters:
 
-```json
-{
-  "sizeSol": 0.05,           // Trade size per token (minimum 0.05 SOL for Ultra API)
-  "slippageBps": 300,        // Slippage tolerance (3%)
-  "tpPct": 12,               // Take profit % (12%)
-  "slPct": 10,               // Stop loss % (10%)
-  "pollMs": 10000,           // Price check interval (10s)
-  "trendingRefreshMs": 600000 // Trending list refresh (10 min)
-}
+```env
+SIZE_SOL=0.05              # Trade size per token (minimum 0.05 SOL for Ultra API)
+SLIPPAGE_BPS=100           # Slippage tolerance (1%)
+TAKE_PROFIT_PCT=5          # Take profit % (5%)
+STOP_LOSS_PCT=1            # Stop loss % (1%)
+PRICE_POLL_MS=10000        # Price check interval (10s)
+TRENDING_REFRESH_MS=600000 # Trending list refresh (10 min)
 ```
+
+**Current Strategy:**
+- **Conservative scalping**: Quick 5% profits, tight 1% stop loss
+- **Low slippage**: 1% tolerance for precise execution
+- **Fast cycles**: Takes profits quickly and moves to next token
 
 **Important**: Jupiter Ultra API has a **minimum trade size of ~0.05 SOL**. Lower amounts will fail with "Insufficient funds" or "Route not found".
 
