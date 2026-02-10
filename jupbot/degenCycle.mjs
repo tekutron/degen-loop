@@ -59,79 +59,30 @@ function mustEnv(name) { const v = process.env[name]; if (!v) throw new Error(`M
 async function execNode(file, env) { const { spawn } = await import('node:child_process'); return await new Promise((resolve, reject) => { const p = spawn('node', [file], { cwd: HERE, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] }); let out = ''; let err = ''; p.stdout.on('data', (d) => (out += d.toString())); p.stderr.on('data', (d) => (err += d.toString())); p.on('close', (code) => { if (code === 0) return resolve({ out, err }); reject(new Error(`Command failed (${code}): node ${file}\nSTDOUT:\n${out}\nSTDERR:\n${err}`)); }); }); }
 function extractSig(stdout) { const m = stdout.match(/\b[1-9A-HJ-NP-Za-km-z]{80,120}\b/); return m ? m[0] : ''; }
 async function sumTokenRaw(connection, ownerPk, mintStr) { const mint = new PublicKey(mintStr); const resp = await connection.getTokenAccountsByOwner(ownerPk, { mint }, 'confirmed'); let total = 0n; for (const { pubkey } of resp.value) { const bal = await connection.getTokenAccountBalance(pubkey, 'confirmed'); total += BigInt(bal.value.amount); } return total; }
-async function fetchRaydiumTopVolume1h() {
-  // Fetch TOP VOLUME COINS - established Solana tokens with Raydium pairs, sorted by 1h volume
-  // Using major tokens + recent boosts that have actual Raydium liquidity
-  // Returns: Top 10 tokens by 1-hour trading volume
-  const majorTokens = [
-    'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', // JUP
-    'jtojtomepa8beP8AuQc6eXt5FriJwfFMwQx2v2f9mCL', // JTO  
-    'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', // BONK
-    'EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm', // WIF
-    '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr', // POPCAT
-    'HeLp6NuQkmYB4pYWo2zYs22mESHXPQYzXbB8n4V98jwC', // AI16Z
-    'Df6yfrKC8kZE3KNkrHERKzAetSxbrWeniQfyJY4Jpump', // CHILLGUY
-    '4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R', // RAY
-    'MEW1gQWJ3nEXg2qgERiKu7FAFj79PHvQVREQUzScPP5', // MEW
-    'nosXBVoaCTtYdLvKY6Csb4AC8JCdQKKAaWYtx2ZMoo7', // NOS
-  ];
+async function loadHotTrendingTokens() {
+  // Load curated hot trending memes from trending_tokens_feb9.json
+  // Returns: Curated list of trending Solana meme tokens
+  const trendingFile = path.join(HERE, 'trending_tokens_feb9.json');
   
-  // Also check top boosted tokens for any with Raydium pairs
-  let additionalTokens = [];
   try {
-    const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
-    if (boostsRes.ok) {
-      const boosts = await boostsRes.json();
-      const sol = boosts.filter((b) => (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress);
-      additionalTokens = sol.slice(0, 30).map((b) => String(b.tokenAddress));
-    }
-  } catch {}
-  
-  const allTokens = [...majorTokens, ...additionalTokens];
-  const results = [];
-  
-  for (const addr of allTokens) {
-    try {
-      const res = await fetch(TOKEN_URL(addr), { cache: 'no-store' });
-      if (!res.ok) continue;
-      const json = await res.json();
-      const pairs = Array.isArray(json?.pairs) ? json.pairs : [];
-      
-      // Filter for Raydium pairs on Solana
-      const raydiumPairs = pairs.filter((p) => 
-        (p?.chainId ?? '').toLowerCase() === 'solana' && 
-        (p?.dexId ?? '').toLowerCase() === 'raydium'
-      );
-      
-      if (raydiumPairs.length === 0) continue;
-      
-      // Sort by 1h volume
-      raydiumPairs.sort((a, b) => Number(b?.volume?.h1 ?? 0) - Number(a?.volume?.h1 ?? 0));
-      const p = raydiumPairs[0];
-      if (!p?.baseToken?.address) continue;
-      
-      // Skip stablecoins at fetch time
-      if (STABLECOINS.has(p.baseToken.address)) continue;
-      
-      // Skip if we already have this token
-      if (results.some(r => r.mint === p.baseToken.address)) continue;
-      
-      results.push({
-        mint: p.baseToken.address,
-        symbol: p.baseToken.symbol,
-        name: p.baseToken.name,
-        priceUsd: Number(p.priceUsd ?? 0),
-        dexUrl: p.url,
-        volumeH1: Number(p?.volume?.h1 ?? 0),
-        volumeH24: Number(p?.volume?.h24 ?? 0),
-        liquidityUsd: Number(p?.liquidity?.usd ?? 0),
-      });
-    } catch { }
+    const data = JSON.parse(fs.readFileSync(trendingFile, 'utf8'));
+    const tokens = Array.isArray(data?.trending) ? data.trending : [];
+    
+    return tokens.map((t) => ({
+      mint: t.mint,
+      symbol: t.symbol,
+      name: t.name,
+      priceUsd: Number(t.priceUsd ?? 0),
+      dexUrl: t.dexUrl,
+      volumeH1: Number(t.volumeH1 ?? 0),
+      volumeH24: Number(t.volumeH24 ?? 0),
+      liquidityUsd: Number(t.liquidityUsd ?? 0),
+      tier: t.tier,
+    }));
+  } catch (err) {
+    console.error('Failed to load hot trending tokens:', err.message);
+    return [];
   }
-  
-  // Sort by 1h volume descending and take top 10
-  results.sort((a, b) => b.volumeH1 - a.volumeH1);
-  return results.slice(0, 10);
 }
 async function fetchPriceUsdForMint(mint) { const res = await fetch(TOKEN_URL(mint), { cache: 'no-store' }); if (!res.ok) throw new Error(`dexscreener token ${res.status}`); const json = await res.json(); const pairs = Array.isArray(json?.pairs) ? json.pairs : []; const solPairs = pairs.filter((p) => (p?.chainId ?? '').toLowerCase() === 'solana'); solPairs.sort((a, b) => Number(b?.volume?.h24 ?? 0) - Number(a?.volume?.h24 ?? 0)); const p = solPairs[0]; const priceUsd = Number(p?.priceUsd ?? 0); if (!priceUsd) throw new Error('priceUsd missing'); return { priceUsd, url: p?.url }; }
 
@@ -141,7 +92,7 @@ async function main() {
   const walletPath = process.env.SWAP_WALLET || path.join(HERE, 'wallets', 'generated_keypair.json');
   const sizeSol = Number(mustEnv('SIZE_SOL'));
   const slippageBps = Number(process.env.SLIPPAGE_BPS || '150');
-  const tpPct = Number(process.env.TAKE_PROFIT_PCT || '10');
+  const tpPct = Number(process.env.TAKE_PROFIT_PCT || '15');
   const slPct = Number(process.env.STOP_LOSS_PCT || '5');
   const pollMs = Number(process.env.PRICE_POLL_MS || '10000');
   const trendingRefreshMs = Number(process.env.TRENDING_REFRESH_MS || String(10 * 60 * 1000));
@@ -160,11 +111,11 @@ async function main() {
   while (true) {
     const now = Date.now();
     if (now >= nextTrendingAt || trending.length === 0) {
-      writeState({ stage: 'FETCH_RAYDIUM_TOP_VOLUME' });
-      trending = await fetchRaydiumTopVolume1h();
+      writeState({ stage: 'LOAD_HOT_TRENDING' });
+      trending = await loadHotTrendingTokens();
       nextTrendingAt = now + trendingRefreshMs;
-      if (trending.length === 0) { writeState({ stage: 'NO_RAYDIUM_PAIRS' }); await sleep(5000); continue; }
-      idx = idx % trending.length; writeState({ trending, trendingLabel: 'Top Volume Coins (1h)', nextTrendingAt, idx });
+      if (trending.length === 0) { writeState({ stage: 'NO_TRENDING_TOKENS' }); await sleep(5000); continue; }
+      idx = idx % trending.length; writeState({ trending, trendingLabel: 'Hot Trending Memes', nextTrendingAt, idx });
     }
 
     const t = trending[idx];
@@ -178,8 +129,8 @@ async function main() {
       continue;
     }
     
-    // Skip illiquid tokens (need high liquidity for Raydium routes)
-    if (!t.liquidityUsd || t.liquidityUsd < 100000) { 
+    // Skip illiquid tokens (need minimum liquidity for routes)
+    if (!t.liquidityUsd || t.liquidityUsd < 20000) { 
       writeState({ stage: 'SKIP_LOW_LIQ', skipped: t.symbol, liquidityUsd: t.liquidityUsd });
       idx = (idx + 1) % trending.length; 
       await sleep(1000); // brief pause before trying next
