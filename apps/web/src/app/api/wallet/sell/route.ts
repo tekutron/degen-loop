@@ -56,6 +56,18 @@ export async function POST(req: Request) {
       }, { status: 500 });
     }
 
+    // Unwrap wSOL to native SOL
+    try {
+      await execAsync('node unwrapSol.mjs', {
+        env,
+        cwd: '/home/j/.openclaw/workspace/jupbot',
+        timeout: 30000,
+      });
+    } catch (unwrapErr) {
+      // Non-fatal: swap succeeded, unwrap failed
+      console.warn('Unwrap wSOL failed:', unwrapErr);
+    }
+
     return NextResponse.json({
       success: true,
       signature,
