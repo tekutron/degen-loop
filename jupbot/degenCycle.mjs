@@ -297,7 +297,7 @@ async function main() {
       writeState({ stage: 'HOLD', lastPriceUsd: priceUsd });
       if (priceUsd >= tpPrice) { exitReason = 'TP'; break; }
       if (priceUsd <= slPrice) { exitReason = 'SL'; break; }
-      if (Date.now() >= nextTrendingAt) { break; }
+      if (Date.now() >= nextTrendingAt) { exitReason = 'TIMEOUT'; break; }
     }
 
     // SELL
