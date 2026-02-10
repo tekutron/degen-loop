@@ -341,9 +341,28 @@ export default function DashboardPage() {
 
       {/* Three columns + Trades */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
-        {/* Top Volume Coins */}
+        {/* Hot Trending */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Top Volume Coins (1h Raydium)</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontWeight: 700 }}>Hot Trending</div>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch('/api/trending/solana', { cache: 'no-store' });
+                  const json = res.ok ? await res.json() : null;
+                  setTrending(Array.isArray(json?.items) ? json.items : []);
+                  const { toast } = await import('react-hot-toast');
+                  toast?.success?.('Trending updated');
+                } catch (e: any) {
+                  const { toast } = await import('react-hot-toast');
+                  toast?.error?.(`Refresh failed: ${e?.message}`);
+                }
+              }}
+              style={{ padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}
+            >
+              🔄 Refresh
+            </button>
+          </div>
           {!trending.length ? (
             <div style={{ fontSize: 12, color: '#6b7280' }}>No data.</div>
           ) : (
