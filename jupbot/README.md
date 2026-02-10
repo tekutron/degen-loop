@@ -5,11 +5,12 @@ Automated trading bot for Solana SPL tokens using Raydium pools and Jupiter Ultr
 ## Features
 
 - **Multi-DEX Aggregation**: Raydium (CLMM, CPMM, AMM v4) + Jupiter Ultra API
-- **Top Volume Tracking**: Monitors Raydium 1-hour volume leaders from DexScreener
-- **Automated Trading**: Buy → Monitor → TP/SL exit cycle
+- **Auto-Refreshing Hot Trending**: Updates every 10 minutes with fresh trending memes from DexScreener
+- **Conservative Scalping**: 5% take profit, 1% stop loss, 1% slippage for tight risk management
+- **Automated Trading**: Buy → Monitor → TP/SL exit cycle with sub-10s monitoring
 - **Jupiter Ultra API**: Next-gen swap aggregation with sub-second landing via Jupiter Beam
-- **Priority Fees**: Configurable priority fees for faster transaction confirmation
-- **Web UI**: Real-time dashboard showing active trades and trending tokens
+- **Priority Fees**: 0.001 SOL per transaction for faster confirmation
+- **Web UI**: Real-time dashboard with active trades, completed history, and live trending tokens
 
 ## Architecture
 
@@ -135,6 +136,22 @@ MAIN_WALLET=1 node liquidateAll.mjs
 # Convert wrapped SOL to native SOL for transaction fees
 node unwrapSol.mjs
 ```
+
+### Refresh Hot Trending List (Manual)
+
+```bash
+# Fetch fresh trending memes from DexScreener
+node refreshTrending.mjs
+```
+
+**Auto-refresh**: The trending list updates automatically every 10 minutes via OpenClaw cron job. This ensures the bot always trades the hottest trending memes.
+
+**Criteria:**
+- Min $100K 24h volume
+- Min $20K liquidity
+- **Tier 2 (Stable)**: $500K+ volume, $50K+ liquidity, <100% 24h swing
+- **High Risk**: Everything else meeting minimums
+- **Target mix**: 60% Tier 2 / 40% High Risk (9 + 6 = 15 tokens)
 
 ## Priority Fees
 
