@@ -34,7 +34,7 @@ async function fetchHotTrendingMemes() {
     
     const candidates = [];
     
-    for (const boost of solTokens.slice(0, 50)) {
+    for (const boost of solTokens.slice(0, 100)) {
       try {
         const res = await fetch(TOKEN_URL(boost.tokenAddress), { cache: 'no-store' });
         if (!res.ok) continue;
@@ -57,14 +57,17 @@ async function fetchHotTrendingMemes() {
         const priceChange1h = Number(p?.priceChange?.h1 ?? 0);
         const priceChange24h = Number(p?.priceChange?.h24 ?? 0);
         
-        if (volumeH24 < 100000) continue;
-        if (liquidityUsd < 20000) continue;
+        // HIGH-SPEED SCALPING CRITERIA
+        if (volumeH24 < 300000) continue; // $300K min (3x higher)
+        if (liquidityUsd < 30000) continue; // $30K min (tradeable size)
+        if (Math.abs(priceChange1h) < 1) continue; // Need ±1%+ 1h moves (active trading)
         
         let tier = '1';
+        // Tier 2: Prime scalping targets (big moves + deep liquidity)
         if (
-          volumeH24 > 500000 &&
-          liquidityUsd > 50000 &&
-          Math.abs(priceChange24h) < 100
+          Math.abs(priceChange1h) > 10 && // Big 1h swings
+          liquidityUsd > 200000 && // Very deep liquidity
+          volumeH1 > 100000 // Active right now
         ) {
           tier = '2';
         }
@@ -94,15 +97,17 @@ async function fetchHotTrendingMemes() {
     const tier2 = candidates.filter(t => t.tier === '2');
     const tier1 = candidates.filter(t => t.tier === '1');
     
-    tier2.sort((a, b) => b.volumeH24 - a.volumeH24);
-    tier1.sort((a, b) => b.volumeH24 - a.volumeH24);
+    // Sort by 1h volatility (highest moves first - best for scalping)
+    tier2.sort((a, b) => Math.abs(b.priceChange1h) - Math.abs(a.priceChange1h));
+    tier1.sort((a, b) => Math.abs(b.priceChange1h) - Math.abs(a.priceChange1h));
     
+    // Take top 10-12 most volatile tokens
     const result = [
-      ...tier2.slice(0, 9),
-      ...tier1.slice(0, 6),
+      ...tier2.slice(0, 5), // Top 5 prime scalping targets
+      ...tier1.slice(0, 7), // Top 7 high volatility
     ];
     
-    console.log(`✅ Found ${result.length} tokens (${tier2.slice(0, 9).length} Tier 2, ${tier1.slice(0, 6).length} High Risk)`);
+    console.log(`✅ Found ${result.length} tokens (${tier2.slice(0, 5).length} Prime Scalping, ${tier1.slice(0, 7).length} High Volatility)`);
     return result;
     
   } catch (err) {
