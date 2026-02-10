@@ -518,33 +518,57 @@ export async function runSdkSwap({
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const rpcUrl = process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
+  const rpcUrl = process.env.HELIUS_RPC_URL || process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
   const walletPath = process.env.SWAP_WALLET;
   const inputMint = process.env.INPUT_MINT || WSOL;
   const outputMint = process.env.OUTPUT_MINT;
   
+  if (!walletPath || !outputMint) throw new Error('Set SWAP_WALLET and OUTPUT_MINT');
+
   // Handle large amounts (USDC has 6 decimals, can be billions of raw units)
   // Use BigInt for parsing, then convert to Number only if safe
+  // Special: AMOUNT_LAMPORTS=0 means sell 100% of token
   const amountStr = process.env.AMOUNT_LAMPORTS || '5000000';
   let amount;
-  try {
-    const amountBig = BigInt(amountStr);
-    // Check if it's safe to convert to Number (< Number.MAX_SAFE_INTEGER)
-    if (amountBig <= BigInt(Number.MAX_SAFE_INTEGER)) {
-      amount = Number(amountBig);
-    } else {
-      throw new Error(`Amount too large for safe conversion: ${amountStr}`);
+  
+  if (amountStr === '0') {
+    // Sell 100% - get token balance
+    const { Connection, Keypair, PublicKey } = await import('@solana/web3.js');
+    const kp = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
+    const keypair = Keypair.fromSecretKey(new Uint8Array(kp));
+    const connection = new Connection(rpcUrl, 'confirmed');
+    
+    const mintPk = new PublicKey(inputMint);
+    const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+      keypair.publicKey,
+      { mint: mintPk }
+    );
+    
+    if (tokenAccounts.value.length === 0) {
+      throw new Error(`No token account found for mint ${inputMint}`);
     }
-  } catch (e) {
-    if (e.message.includes('too large')) throw e;
-    // If BigInt parsing fails, try Number directly (backward compat)
-    amount = Number(amountStr);
+    
+    const balance = tokenAccounts.value[0].account.data.parsed.info.tokenAmount.amount;
+    amount = Number(balance);
+    console.log(`Selling 100% of token: ${amount} raw units`);
+  } else {
+    try {
+      const amountBig = BigInt(amountStr);
+      // Check if it's safe to convert to Number (< Number.MAX_SAFE_INTEGER)
+      if (amountBig <= BigInt(Number.MAX_SAFE_INTEGER)) {
+        amount = Number(amountBig);
+      } else {
+        throw new Error(`Amount too large for safe conversion: ${amountStr}`);
+      }
+    } catch (e) {
+      if (e.message.includes('too large')) throw e;
+      // If BigInt parsing fails, try Number directly (backward compat)
+      amount = Number(amountStr);
+    }
   }
   
   const slippageBps = Number(process.env.SLIPPAGE_BPS || 100);
   const txVersion = process.env.TX_VERSION || 'V0';
-
-  if (!walletPath || !outputMint) throw new Error('Set SWAP_WALLET and OUTPUT_MINT');
 
   const sigs = await runSdkSwap({
     rpcUrl,
