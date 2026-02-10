@@ -4,23 +4,29 @@ import path from 'path';
 
 export async function GET() {
   try {
-    // Read from cycle_state.json to show the exact Raydium top volume coins the bot is trading
-    const cycleStatePath = '/home/j/.openclaw/workspace/jupbot/cycle_state.json';
+    // Read hot trending memes from the curated list
+    const trendingFilePath = '/home/j/.openclaw/workspace/jupbot/trending_tokens_feb9.json';
     
     let trending: any[] = [];
     try {
-      const data = fs.readFileSync(cycleStatePath, 'utf8');
-      const cycleState = JSON.parse(data);
-      trending = Array.isArray(cycleState?.trending) ? cycleState.trending : [];
+      const data = fs.readFileSync(trendingFilePath, 'utf8');
+      const trendingData = JSON.parse(data);
+      trending = Array.isArray(trendingData?.trending) ? trendingData.trending : [];
     } catch (err) {
-      // If cycle_state.json doesn't exist or can't be read, return empty
-      console.warn('Could not read cycle_state.json:', err);
-      return NextResponse.json({ items: [] });
+      // If trending file doesn't exist, try cycle_state.json as fallback
+      try {
+        const cycleStatePath = '/home/j/.openclaw/workspace/jupbot/cycle_state.json';
+        const cycleData = fs.readFileSync(cycleStatePath, 'utf8');
+        const cycleState = JSON.parse(cycleData);
+        trending = Array.isArray(cycleState?.trending) ? cycleState.trending : [];
+      } catch {
+        return NextResponse.json({ items: [] });
+      }
     }
 
-    // Map cycle trending format to API format
+    // Map trending format to API format
     const items = trending.map((t) => ({
-      pairAddress: undefined, // Not available in cycle state
+      pairAddress: undefined,
       url: t?.dexUrl || undefined,
       base: {
         address: t?.mint,
@@ -33,11 +39,17 @@ export async function GET() {
         name: 'Wrapped SOL',
       },
       chainId: 'solana',
-      dexId: 'raydium',
+      dexId: t?.tier === '2' ? 'Tier 2 (Stable)' : 'High Risk',
       priceUsd: t?.priceUsd,
       volumeH24: t?.volumeH24,
+      volumeH1: t?.volumeH1,
       liquidityUsd: t?.liquidityUsd,
+      priceChange: {
+        h1: t?.priceChange1h,
+        h24: t?.priceChange24h,
+      },
       fdv: undefined,
+      tier: t?.tier,
     }));
 
     return NextResponse.json({ items });

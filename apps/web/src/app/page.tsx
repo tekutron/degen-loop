@@ -29,6 +29,7 @@ type TrendingItem = {
   priceUsd?: number;
   volumeH24?: number;
   liquidityUsd?: number;
+  priceChange?: { h1?: number; h24?: number };
 };
 
 type Proposal = {
@@ -272,23 +273,6 @@ export default function DashboardPage() {
     return json.value;
   };
 
-  const buyTrending = async (mint?: string) => {
-    if (!mint) return;
-    try {
-      setBusy(true);
-      const ok = confirm(`Buy with SOL?\nMint: ${mint}\nAmount: 0.001 SOL`);
-      if (!ok) return;
-      const built = await buildSwap({ inputMint: WSOL, outputMint: mint, amountRaw: 1_000_000, slippageBps: 100 });
-      const conn = getConnection();
-      const sig = await sendTransaction(built.transaction as any, conn);
-      alert(`Sent! ${sig}\n${explorerTxUrl(sig)}`);
-    } catch (e: any) {
-      alert(`Buy failed: ${e?.message ?? String(e)}`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const yesProposal = async (p: Proposal) => {
     try {
       setBusy(true);
@@ -327,7 +311,6 @@ export default function DashboardPage() {
       {/* Top controls */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
         <WalletConnect />
-        <button onClick={loadAll} disabled={busy} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #e5e7eb' }}>Refresh all</button>
         <a href="/settings" style={{ color: '#2563eb' }}>Settings</a>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 12 }}>
           <span style={{ fontSize: 12, color: '#6b7280' }}>Cycle size (SOL):</span>
@@ -344,24 +327,8 @@ export default function DashboardPage() {
         {/* Hot Trending */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <div style={{ fontWeight: 700 }}>Hot Trending</div>
-            <button
-              onClick={async () => {
-                try {
-                  const res = await fetch('/api/trending/solana', { cache: 'no-store' });
-                  const json = res.ok ? await res.json() : null;
-                  setTrending(Array.isArray(json?.items) ? json.items : []);
-                  const { toast } = await import('react-hot-toast');
-                  toast?.success?.('Trending updated');
-                } catch (e: any) {
-                  const { toast } = await import('react-hot-toast');
-                  toast?.error?.(`Refresh failed: ${e?.message}`);
-                }
-              }}
-              style={{ padding: '4px 8px', fontSize: 12, borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}
-            >
-              🔄 Refresh
-            </button>
+            <div style={{ fontWeight: 700 }}>High-Speed</div>
+            <div style={{ fontSize: 11, color: '#6b7280' }}>Auto-updates every 5 min</div>
           </div>
           {!trending.length ? (
             <div style={{ fontSize: 12, color: '#6b7280' }}>No data.</div>
@@ -372,16 +339,22 @@ export default function DashboardPage() {
                   {it.base?.symbol ?? it.base?.name ?? it.base?.address}
                 </div>
                 <div style={{ fontSize: 12, color: '#6b7280' }}>
-                  price: {it.priceUsd != null ? `$${it.priceUsd.toFixed(6)}` : '—'} | vol24h: {it.volumeH24 != null ? `$${Math.round(it.volumeH24).toLocaleString()}` : '—'}
+                  price: {it.priceUsd != null ? `$${it.priceUsd.toFixed(6)}` : '—'} | mcap: {it.liquidityUsd != null ? `$${Math.round(it.liquidityUsd).toLocaleString()}` : '—'}
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-                  <button onClick={() => buyTrending(it.base?.address)} disabled={busy} style={{ padding: '4px 8px', borderRadius: 6, background: '#111827', color: '#fff' }}>Buy 0.001 SOL</button>
-                  {it.url && (
-                    <a href={it.url} target="_blank" rel="noreferrer" style={{ color: '#2563eb', fontSize: 12, padding: '4px 0' }}>
-                      DexScreener
+                <div style={{ fontSize: 12, color: '#6b7280' }}>
+                  1h: {it.priceChange?.h1 != null ? (
+                    <span style={{ color: it.priceChange.h1 >= 0 ? '#10b981' : '#ef4444' }}>
+                      {it.priceChange.h1 >= 0 ? '+' : ''}{it.priceChange.h1.toFixed(2)}%
+                    </span>
+                  ) : '—'} | vol24h: {it.volumeH24 != null ? `$${Math.round(it.volumeH24).toLocaleString()}` : '—'}
+                </div>
+                {it.url && (
+                  <div style={{ marginTop: 4 }}>
+                    <a href={it.url} target="_blank" rel="noreferrer" style={{ color: '#2563eb', fontSize: 12 }}>
+                      View on DexScreener →
                     </a>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -396,32 +369,53 @@ export default function DashboardPage() {
           {!trades.length ? (
             <div style={{ fontSize: 12, color: '#6b7280' }}>No trades yet.</div>
           ) : (
-            trades.slice(0, 20).map((t, idx) => (
-              <div key={(t.entrySig || t.exitSig || idx).toString()} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
-                <div style={{ fontWeight: 600, fontSize: 13 }}>{t.symbol ?? t.mint}</div>
-                <div style={{ fontSize: 12, color: '#6b7280' }}>
-                  {t.entryAt ? `in: ${t.entryAt}` : ''} {t.exitAt ? ` · out: ${t.exitAt}` : ''}
-                </div>
-                <div style={{ fontSize: 12 }}>
-                  {t.entryPriceUsd != null ? `entry: $${t.entryPriceUsd.toFixed(6)}` : 'entry: —'} {t.exitPriceUsd != null ? ` · exit: $${t.exitPriceUsd.toFixed(6)}` : ''} {t.pnlPct != null ? ` · PnL: ${t.pnlPct.toFixed(2)}%` : ''}
-                </div>
-                {(t.entrySig || t.exitSig) && (
-                  <div style={{ fontSize: 12, color: '#6b7280', overflowWrap: 'anywhere' }}>
-                    {t.entrySig ? `buy: ${t.entrySig}` : ''} {t.exitSig ? ` · sell: ${t.exitSig}` : ''}
-                  </div>
-                )}
-              </div>
-            ))
+            (() => {
+              const openTrades = trades.filter(t => t.status === 'OPEN');
+              const closedTrades = trades.filter(t => t.status === 'CLOSED').slice(0, 10);
+              return (
+                <>
+                  {openTrades.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginBottom: 6, textTransform: 'uppercase' }}>Activities</div>
+                      {openTrades.map((t, idx) => (
+                        <div key={(t.entrySig || idx).toString()} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6', background: '#fffbeb' }}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{t.symbol ?? t.mint}</div>
+                          <div style={{ fontSize: 12, color: '#6b7280' }}>
+                            Entry: ${t.entryPriceUsd?.toFixed(6) ?? '—'}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#6b7280' }}>
+                            TP: ${t.tpPrice?.toFixed(6) ?? '—'} (+{((((t.tpPrice ?? 0) / (t.entryPriceUsd ?? 1) - 1) * 100) || 0).toFixed(1)}%) | SL: ${t.slPrice?.toFixed(6) ?? '—'} ({((((t.slPrice ?? 0) / (t.entryPriceUsd ?? 1) - 1) * 100) || 0).toFixed(1)}%)
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                  {closedTrades.length > 0 && (
+                    <>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', marginTop: 12, marginBottom: 6, textTransform: 'uppercase' }}>Recent Completed</div>
+                      {closedTrades.map((t, idx) => (
+                        <div key={(t.exitSig || idx).toString()} style={{ padding: '8px 0', borderBottom: '1px solid #f3f4f6' }}>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{t.symbol ?? t.mint}</div>
+                          <div style={{ fontSize: 12 }}>
+                            ${t.entryPriceUsd?.toFixed(6) ?? '—'} → ${t.exitPriceUsd?.toFixed(6) ?? '—'}
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: (t.pnlPct ?? 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                            {(t.pnlPct ?? 0) >= 0 ? '+' : ''}{t.pnlPct?.toFixed(2) ?? '—'}%
+                          </div>
+                          <div style={{ fontSize: 11, color: '#6b7280' }}>
+                            {new Date(t.exitAt ?? '').toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </>
+              );
+            })()
           )}
         </section>
       </div>
 
-      {cycle && (
-        <div style={{ marginTop: 16, fontSize: 12, color: '#111827' }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>Cycle status</div>
-          <pre style={{ whiteSpace: 'pre-wrap', background: '#f9fafb', padding: 8, borderRadius: 6, overflowX: 'auto' }}>{JSON.stringify(cycle, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 }
