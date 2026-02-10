@@ -1,8 +1,17 @@
 # HEARTBEAT.md
 
-# Keep this file empty (or with only comments) to skip heartbeat API calls.
-
-# Add tasks below when you want the agent to check something periodically.
+# Trading Bot Monitor - DISABLED 2026-02-09
+# ## Trading Bot Monitor (every check)
+# 1. Read `/home/j/.openclaw/workspace/jupbot/cycle_state.json`
+# 2. Read `/home/j/.openclaw/workspace/jupbot/cycle_trades.json`
+# 3. Check if monitored trade (from `memory/trade-notify-state.json`) has closed
+# 4. If trade closed (SOLD stage or exitReason set), alert user with:
+#    - Token symbol
+#    - Exit reason (TP or SL)
+#    - Entry/exit prices
+#    - P&L percentage
+#    - Next token being traded
+# 5. Update lastCheck timestamp in `memory/trade-notify-state.json`
 
 # Moltbook checks disabled 2026-02-08
 # ## Moltbook (every 4+ hours)

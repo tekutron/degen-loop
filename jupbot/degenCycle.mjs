@@ -218,14 +218,14 @@ async function main() {
     const shouldRefresh = trending.length === 0 || now >= nextTrendingAt || wrappedToStart;
     
     if (shouldRefresh) {
-      writeState({ stage: 'FETCH_FRESH_TRENDING' });
-      console.log(wrappedToStart ? '🔄 End of list reached, refreshing...' : '🔥 Loading fresh trending tokens...');
-      trending = await fetchHotTrendingMemes();
+      writeState({ stage: 'LOAD_HOT_TRENDING' });
+      console.log(wrappedToStart ? '🔄 End of list reached, reloading...' : '🔥 Loading hot trending tokens...');
+      trending = loadFallbackTokens();
       nextTrendingAt = now + trendingRefreshMs;
       if (trending.length === 0) { writeState({ stage: 'NO_TRENDING_TOKENS' }); await sleep(5000); continue; }
       idx = 0; // Start from beginning of new list
       const prevState = fs.existsSync(STATE_FILE) ? JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')) : {};
-      writeState({ trending, trendingLabel: 'Hot Trending Memes (Live)', nextTrendingAt, idx, listRefreshCount: (prevState?.listRefreshCount ?? 0) + 1 });
+      writeState({ trending, trendingLabel: 'Hot Trending Memes', nextTrendingAt, idx, listRefreshCount: (prevState?.listRefreshCount ?? 0) + 1 });
     }
 
     const t = trending[idx];
