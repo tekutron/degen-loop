@@ -67,21 +67,25 @@ export default function WalletCard() {
     }
   }
 
-  async function handleSell(mint: string, percent: number) {
-    if (!confirm(`Sell ${percent}% of ${mint}?`)) return;
+  async function handleSell(mint: string, symbol: string) {
+    if (!confirm(`Sell all ${symbol || mint.slice(0, 8)} to SOL?`)) return;
     try {
       const res = await fetch('/api/wallet/sell', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mint, percent }),
+        body: JSON.stringify({ mint }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Sell failed');
+      if (!res.ok) {
+        const errorMsg = json.error || 'Sell failed';
+        const details = json.stderr ? `\n\nDetails:\n${json.stderr}` : '';
+        throw new Error(errorMsg + details);
+      }
       if (json.success) {
-        alert(`Sold! Tx: ${json.signature}`);
+        alert(`Sold to SOL!\n\nTx: ${json.signature}\n\n${json.explorerUrl || ''}`);
         loadPositions();
       } else {
-        alert(json.message || 'Sell not yet implemented');
+        alert(json.message || 'Sell failed');
       }
     } catch (e: any) {
       alert(`Sell error: ${e.message}`);
@@ -144,44 +148,30 @@ export default function WalletCard() {
               <th className="text-right py-2">Amount</th>
               <th className="text-right py-2">Price</th>
               <th className="text-right py-2">Value</th>
-              <th className="text-right py-2">Actions</th>
+              <th className="text-right py-2">Sell</th>
             </tr>
           </thead>
           <tbody>
             {data.positions.map((pos, i) => (
               <tr key={i} className="border-b">
                 <td className="py-2">
-                  <div className="font-mono text-xs">{pos.symbol || pos.mint.slice(0, 8)}</div>
+                  <div className="font-mono text-xs font-semibold">{pos.symbol || pos.mint.slice(0, 8)}</div>
                 </td>
                 <td className="text-right">{pos.uiAmount.toFixed(6)}</td>
                 <td className="text-right">
-                  {pos.priceUSD ? `$${pos.priceUSD.toFixed(4)}` : '—'}
+                  {pos.priceUSD && pos.priceUSD > 0 ? `$${pos.priceUSD.toFixed(6)}` : '—'}
+                </td>
+                <td className="text-right font-semibold">
+                  {pos.valueUSD && pos.valueUSD > 0 ? `$${pos.valueUSD.toFixed(2)}` : '—'}
                 </td>
                 <td className="text-right">
-                  {pos.valueUSD ? `$${pos.valueUSD.toFixed(2)}` : '—'}
-                </td>
-                <td className="text-right space-x-1">
-                  {pos.mint !== 'So11111111111111111111111111111111111111112' && (
-                    <>
-                      <button
-                        onClick={() => handleSell(pos.mint, 25)}
-                        className="px-2 py-0.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
-                      >
-                        25%
-                      </button>
-                      <button
-                        onClick={() => handleSell(pos.mint, 50)}
-                        className="px-2 py-0.5 text-xs bg-orange-500 text-white rounded hover:bg-orange-600"
-                      >
-                        50%
-                      </button>
-                      <button
-                        onClick={() => handleSell(pos.mint, 100)}
-                        className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        100%
-                      </button>
-                    </>
+                  {pos.mint !== 'So11111111111111111111111111111111111111112' && pos.mint !== '11111111111111111111111111111111' && (
+                    <button
+                      onClick={() => handleSell(pos.mint, pos.symbol || '')}
+                      className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 font-medium"
+                    >
+                      Sell
+                    </button>
                   )}
                 </td>
               </tr>
