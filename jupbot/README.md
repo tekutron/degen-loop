@@ -6,7 +6,7 @@ Automated trading bot for Solana SPL tokens using Raydium pools and Jupiter Ultr
 
 - **Multi-DEX Aggregation**: Raydium (CLMM, CPMM, AMM v4) + Jupiter Ultra API
 - **Auto-Refreshing Hot Trending**: Updates every 1 minute with fresh trending memes from DexScreener for aggressive scalping
-- **Conservative Scalping**: 3% take profit, 0.5% stop loss, 1% slippage for tight risk management
+- **Balanced Scalping**: 5% take profit, 2% stop loss, 1% slippage for optimal risk/reward
 - **Automated Trading**: Buy → Monitor → TP/SL exit cycle with sub-10s monitoring
 - **Jupiter Ultra API**: Next-gen swap aggregation with sub-second landing via Jupiter Beam
 - **Priority Fees**: 0.001 SOL per transaction for faster confirmation
@@ -84,17 +84,18 @@ Edit `.env` file for trading parameters:
 
 ```env
 SIZE_SOL=0.05              # Trade size per token (minimum 0.05 SOL for Ultra API)
-SLIPPAGE_BPS=50            # Slippage tolerance (0.5%)
-TAKE_PROFIT_PCT=3          # Take profit % (3%)
-STOP_LOSS_PCT=0.5          # Stop loss % (0.5%)
+SLIPPAGE_BPS=100           # Slippage tolerance (1%)
+TAKE_PROFIT_PCT=5          # Take profit % (5%)
+STOP_LOSS_PCT=2            # Stop loss % (2%)
 PRICE_POLL_MS=10000        # Price check interval (10s)
 TRENDING_REFRESH_MS=60000  # Trending list refresh (1 min - aggressive scalping)
 ```
 
 **Current Strategy:**
-- **Aggressive scalping**: Ultra-fast 3% profits, very tight 0.5% stop loss
-- **Ultra-low slippage**: 0.5% tolerance for precise execution
-- **Rapid cycles**: 1-minute token refresh, 5-minute max hold time per position
+- **Balanced scalping**: 5% take profit, 2% stop loss for optimal risk/reward (2.5:1 ratio)
+- **Low slippage**: 1% tolerance for reliable execution
+- **Rapid cycles**: 1-minute token refresh, max 1-minute hold time per position
+- **Timeout protection**: Automatic sell after 1 minute to prevent zombie positions
 
 **Important**: Jupiter Ultra API has a **minimum trade size of ~0.05 SOL**. Lower amounts will fail with "Insufficient funds" or "Route not found".
 
