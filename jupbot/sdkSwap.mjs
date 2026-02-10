@@ -326,7 +326,7 @@ export async function runSdkSwap({
 
     // FORCE Jupiter path when requested
     if (forceJup) {
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 1000000 });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 100000 });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       
@@ -354,7 +354,7 @@ export async function runSdkSwap({
       });
     } catch (e) {
       // Fallback to Jupiter path
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 1000000 });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 100000 });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       
@@ -428,7 +428,7 @@ export async function runSdkSwap({
 
     if (poolOwnerInfo.owner.equals(ALL_PROGRAM_ID.AMM_V4)) {
       // Fallback to Jupiter for AMM v4 pools to avoid SDK mismatches (Serum authority helpers etc.)
-      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 1000000 });
+      const jQ = await getJupiterQuote({ inputMint, outputMint, amount: amountLamports, slippageBps, taker: owner.publicKey.toBase58(), priorityFeeLamports: 100000 });
       const swapB64 = await buildJupiterSwapTx({ quoteResponse: jQ, userPublicKey: owner.publicKey.toBase58(), computeUnitPriceMicroLamports: 0 });
       const buf = Buffer.from(swapB64, 'base64');
       
