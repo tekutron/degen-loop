@@ -365,7 +365,23 @@ export default function DashboardPage() {
 
         {/* Trades */}
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Trades</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontWeight: 700 }}>Trades</div>
+            {trades.length > 0 && (() => {
+              const totalPnl = trades
+                .filter(t => t.status === 'CLOSED' && t.pnlPct != null)
+                .reduce((sum, t) => sum + (t.pnlPct ?? 0), 0);
+              return (
+                <div style={{ 
+                  fontSize: 14, 
+                  fontWeight: 600, 
+                  color: totalPnl >= 0 ? '#10b981' : '#ef4444' 
+                }}>
+                  {totalPnl >= 0 ? '+' : ''}{totalPnl.toFixed(2)}%
+                </div>
+              );
+            })()}
+          </div>
           {!trades.length ? (
             <div style={{ fontSize: 12, color: '#6b7280' }}>No trades yet.</div>
           ) : (
