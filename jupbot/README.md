@@ -5,8 +5,8 @@ Automated trading bot for Solana SPL tokens using Raydium pools and Jupiter Ultr
 ## Features
 
 - **Multi-DEX Aggregation**: Raydium (CLMM, CPMM, AMM v4) + Jupiter Ultra API
-- **Auto-Refreshing Hot Trending**: Updates every 10 minutes with fresh trending memes from DexScreener
-- **Conservative Scalping**: 5% take profit, 1% stop loss, 1% slippage for tight risk management
+- **Auto-Refreshing Hot Trending**: Updates every 1 minute with fresh trending memes from DexScreener for aggressive scalping
+- **Conservative Scalping**: 3% take profit, 0.5% stop loss, 1% slippage for tight risk management
 - **Automated Trading**: Buy → Monitor → TP/SL exit cycle with sub-10s monitoring
 - **Jupiter Ultra API**: Next-gen swap aggregation with sub-second landing via Jupiter Beam
 - **Priority Fees**: 0.001 SOL per transaction for faster confirmation
@@ -84,17 +84,17 @@ Edit `.env` file for trading parameters:
 
 ```env
 SIZE_SOL=0.05              # Trade size per token (minimum 0.05 SOL for Ultra API)
-SLIPPAGE_BPS=100           # Slippage tolerance (1%)
-TAKE_PROFIT_PCT=5          # Take profit % (5%)
-STOP_LOSS_PCT=1            # Stop loss % (1%)
+SLIPPAGE_BPS=50            # Slippage tolerance (0.5%)
+TAKE_PROFIT_PCT=3          # Take profit % (3%)
+STOP_LOSS_PCT=0.5          # Stop loss % (0.5%)
 PRICE_POLL_MS=10000        # Price check interval (10s)
-TRENDING_REFRESH_MS=600000 # Trending list refresh (10 min)
+TRENDING_REFRESH_MS=60000  # Trending list refresh (1 min - aggressive scalping)
 ```
 
 **Current Strategy:**
-- **Conservative scalping**: Quick 5% profits, tight 1% stop loss
-- **Low slippage**: 1% tolerance for precise execution
-- **Fast cycles**: Takes profits quickly and moves to next token
+- **Aggressive scalping**: Ultra-fast 3% profits, very tight 0.5% stop loss
+- **Ultra-low slippage**: 0.5% tolerance for precise execution
+- **Rapid cycles**: 1-minute token refresh, 5-minute max hold time per position
 
 **Important**: Jupiter Ultra API has a **minimum trade size of ~0.05 SOL**. Lower amounts will fail with "Insufficient funds" or "Route not found".
 
@@ -144,7 +144,7 @@ node unwrapSol.mjs
 node refreshTrending.mjs
 ```
 
-**Auto-refresh**: The trending list updates automatically every 10 minutes via OpenClaw cron job. This ensures the bot always trades the hottest trending memes.
+**Auto-refresh**: The trending list updates automatically every 1 minute via OpenClaw cron job. This ensures the bot always trades the hottest trending memes with aggressive scalping frequency.
 
 **Criteria:**
 - Min $100K 24h volume
