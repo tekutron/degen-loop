@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Connection, Keypair, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
 import fs from 'fs';
 
 const rpc = process.env.HELIUS_RPC_URL || process.env.SOLANA_RPC || 'https://api.mainnet-beta.solana.com';
@@ -16,14 +16,18 @@ console.log('Wallet:', walletAddress.toString());
 const solBalance = await connection.getBalance(walletAddress);
 console.log('SOL Balance:', solBalance / LAMPORTS_PER_SOL, 'SOL');
 
-// Get token accounts
+// Get token accounts (both programs)
 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
   walletAddress,
   { programId: TOKEN_PROGRAM_ID }
 );
+const token2022Accounts = await connection.getParsedTokenAccountsByOwner(
+  walletAddress,
+  { programId: TOKEN_2022_PROGRAM_ID }
+);
 
 console.log('\nToken Accounts:');
-for (const { account, pubkey } of tokenAccounts.value) {
+for (const { account, pubkey } of [...tokenAccounts.value, ...token2022Accounts.value]) {
   const { mint, tokenAmount } = account.data.parsed.info;
   if (tokenAmount.uiAmount > 0) {
     console.log(`  ${mint}`);
