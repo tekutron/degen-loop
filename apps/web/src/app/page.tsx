@@ -195,10 +195,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadAll();
-    // Auto-refresh trending every 60 seconds
+    // Auto-refresh trending every 5 minutes
     const interval = setInterval(() => {
       loadAll();
-    }, 60000);
+    }, 300000);
     return () => clearInterval(interval);
   }, []);
 
@@ -333,7 +333,7 @@ export default function DashboardPage() {
         <section style={{ border: '1px solid #e5e7eb', borderRadius: 8, padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontWeight: 700 }}>High-Speed</div>
-            <div style={{ fontSize: 11, color: '#6b7280' }}>Auto-updates every 1 min</div>
+            <div style={{ fontSize: 11, color: '#6b7280' }}>Auto-updates every 5 min</div>
           </div>
           {!trending.length ? (
             <div style={{ fontSize: 12, color: '#6b7280' }}>No data.</div>
