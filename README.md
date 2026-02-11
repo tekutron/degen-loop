@@ -170,3 +170,4 @@ The real component used by the App Router is `apps/web/src/components/WalletConn
 ---
 
 PRs welcome. Add pairs in `apps/web/pairs.json` for generator; extend `tokens.json` as needed.
+# Testing fast commits
