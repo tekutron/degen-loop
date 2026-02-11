@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * refreshTrending.mjs - AGGRESSIVE SCALPING MODE
- * Fetches fresh hot trending memes from DexScreener with tight filters
- * Based on professional scalping parameters for 5-20% quick flips
+ * refreshTrending.mjs - SWING TRADING MODE
+ * Fetches established trending memes from DexScreener
+ * Focus: 6-48h coins with strong volume + sustained momentum
  */
 
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ const STABLECOINS = new Set([
 ]);
 
 async function fetchHotTrendingMemes() {
-  console.log('📊 Fetching RANGE TRADING targets from DexScreener...');
+  console.log('📊 Fetching RISKIER SCALPING targets (Early Snipes) from DexScreener...');
   
   try {
     const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
@@ -35,7 +35,7 @@ async function fetchHotTrendingMemes() {
     const candidates = [];
     const now = Date.now();
     
-    for (const boost of solTokens.slice(0, 150)) {
+    for (const boost of solTokens.slice(0, 300)) {
       try {
         const res = await fetch(TOKEN_URL(boost.tokenAddress), { cache: 'no-store' });
         if (!res.ok) continue;
@@ -69,50 +69,57 @@ async function fetchHotTrendingMemes() {
         const pairAge = p?.pairCreatedAt ? now - p.pairCreatedAt : 999999999;
         const ageHours = pairAge / (1000 * 60 * 60);
         
-        // RANGE TRADING FILTERS (stable oscillating coins)
+        // RISKIER SCALPING FILTERS (DexScreener "Early Snipes" tier)
         
-        // 1. Market Cap: $30K - $10M (broader range)
-        if (fdv < 30000 || fdv > 10000000) continue;
+        // 1. Market Cap: $50K - $10M (very riskier - allow smaller caps)
+        if (fdv < 50000 || fdv > 10000000) continue;
         
-        // 2. Liquidity: $15K+ (enough for our trades)
-        if (liquidityUsd < 15000) continue;
+        // 2. Liquidity: $8.5K+ (matches document "Riskier" tier exactly)
+        if (liquidityUsd < 8500) continue;
         
-        // 3. Pair Age: 3 - 72 hours (established trending, loosened)
-        if (ageHours < 3 || ageHours > 72) continue;
+        // 3. Pair Age: 0.5h - 72h (extended to catch more coins)
+        if (ageHours < 0.5 || ageHours > 72) continue;
         
-        // 4. 24h volume: $100K+ (consistent interest, loosened)
-        if (volumeH24 < 100000) continue;
+        // 4. 24h volume: Track but don't filter (fresh coins won't have 24h history)
+        // Skip 24h volume filter for riskier tier
         
-        // 5. Volume consistency: 1h volume should be >5% of 24h (still active)
-        const volumeRatio = volumeH1 / volumeH24;
-        if (volumeRatio < 0.05) continue;
+        // 5. 1h volume: $20K+ minimum (very loose for riskier)
+        if (volumeH1 < 20000) continue;
         
-        // 6. Price volatility: 10-50% in 24h (oscillates nicely)
+        // 6. 5min volume: $3K+ minimum (immediate activity)
+        if (volumeM5 < 3000) continue;
+        
+        // 7. CURRENT ACTIVITY: 1h volume should be >8% of 24h when applicable
+        const volumeRatio = volumeH1 / (volumeH24 || volumeH1); // Fallback for fresh coins
+        if (volumeRatio < 0.08 && volumeH24 > 0) continue;
+        
+        // 8. 1h momentum: +5%+ for riskier entry (catch earlier)
+        if (priceChange1h < 5) continue; // Allow lower entry, but still positive
+        
+        // 9. Price volatility: Track but allow wide range (riskier tier)
         const volatility24h = Math.abs(priceChange24h);
-        if (volatility24h < 10 || volatility24h > 50) continue;
         
-        // 7. Not in extreme pump/dump: 1h change -20% to +20%
-        if (priceChange1h < -20 || priceChange1h > 20) continue;
-        
-        // 8. Transactions: 100+ in 24h (real activity)
+        // 10. Transactions: 100+ in 24h (real activity, but less strict than 1h)
         if (txns24h < 100) continue;
         
-        // Calculate range trading score (volume consistency + moderate volatility)
-        const volumeScore = volumeRatio * 100; // Higher is better
-        const volatilityScore = 50 - Math.abs(volatility24h - 25); // Closer to 25% is ideal
-        const rangeScore = volumeScore + volatilityScore;
+        // Calculate scalping score (riskier tier - prioritize immediate momentum)
+        const volumeM5Score = Math.min(volumeM5 / 1000, 30); // 5min volume (cap 30)
+        const volumeH1Score = Math.min(volumeH1 / 10000, 30); // 1h volume (cap 30)
+        const momentum1hScore = Math.min(priceChange1h, 60); // 1h momentum (cap 60)
+        const freshnessScore = Math.max(0, 20 - ageHours); // Reward fresh coins (newer = higher)
+        const scalpScore = volumeM5Score + volumeH1Score + momentum1hScore + freshnessScore;
         
-        // Tier system: Prime range traders vs. Good candidates
-        let tier = '1'; // Good range trader
+        // Tier system: Hot early snipes vs Fresh movers
+        let tier = '1'; // Fresh mover
         
-        // Tier 2: Prime Range Trading (optimal oscillation)
+        // Tier 2: Hot Early Snipe (fresh + strong momentum)
         if (
-          fdv >= 100000 && fdv <= 1000000 && // Sweet spot MC
-          liquidityUsd > 50000 && // Deep liquidity for tight spreads
-          volumeH24 > 500000 && // Very consistent volume
-          volumeRatio > 0.08 && // Strong hourly activity
-          volatility24h > 15 && volatility24h < 35 && // Perfect oscillation range
-          Math.abs(priceChange1h) < 10 // Currently stable (not pumping/dumping)
+          fdv >= 200000 && fdv <= 800000 && // Sweet spot MC for riskier ($200K-$800K)
+          liquidityUsd > 20000 && // Decent liquidity ($20K+)
+          volumeM5 > 20000 && // Very active 5min ($20K+)
+          volumeH1 > 100000 && // Strong 1h volume ($100K+)
+          priceChange1h >= 20 && priceChange1h <= 100 && // Hot momentum (20-100%)
+          ageHours < 12 // Fresh (under 12h)
         ) {
           tier = '2';
         }
@@ -139,29 +146,29 @@ async function fetchHotTrendingMemes() {
           ageHours: Math.round(ageHours * 10) / 10,
           volumeRatio: Math.round(volumeRatio * 1000) / 10, // Percentage
           volatility24h: Math.round(volatility24h * 10) / 10,
-          rangeScore: Math.round(rangeScore),
+          scalpScore: Math.round(scalpScore),
         });
       } catch (err) {
         // Skip invalid tokens
       }
     }
     
-    // Sort by range trading score (volume consistency + volatility)
-    candidates.sort((a, b) => b.rangeScore - a.rangeScore);
+    // Sort by scalping score (DexScreener pro methodology)
+    candidates.sort((a, b) => b.scalpScore - a.scalpScore);
     
     // Separate tiers
     const tier2 = candidates.filter((c) => c.tier === '2');
     const tier1 = candidates.filter((c) => c.tier === '1');
     
-    // Target: 5 Tier 2 + 10 Tier 1 = 15 tokens
+    // Target: 5 Elite + 10 Good = 15 tokens (focused selection)
     const final = [...tier2.slice(0, 5), ...tier1.slice(0, 10)];
     
-    console.log(`✅ Found ${final.length} tokens (${tier2.length} Prime Range Traders, ${tier1.length} Good Range Traders)`);
+    console.log(`✅ Found ${final.length} tokens (${tier2.length} Hot Early Snipes, ${tier1.length} Fresh Movers)`);
     
     const output = {
       updatedAt: new Date().toISOString(),
-      source: 'DexScreener Range Trading',
-      strategy: 'MC: $50K-$5M | Liq: $20K+ | Age: 6-48h | Vol24h: $200K+ | Vol consistency | 10-50% volatility | Stable 1h',
+      source: 'DexScreener Riskier Scalping (Early Snipes)',
+      strategy: 'MC: $100K-$1M | Liq: $10K+ | Age: 0.5-48h | Vol1h: $50K+ | Vol5m: $10K+ | 1h: +10-200% | Fresh launches with momentum',
       trending: final,
     };
     

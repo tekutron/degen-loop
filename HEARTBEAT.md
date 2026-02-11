@@ -1,21 +1,48 @@
 # HEARTBEAT.md
 
-## Trading Workflow (Aggressive Momentum Scalping)
-**Strategy:** Smaller positions, tighter stops, focus on fresh momentum
+## Trading Workflow (Momentum Cycling - Riskier Tier - Updated 2026-02-11 15:20)
+**Strategy:** Early snipes on fresh launches, ride momentum UP, exit when it fades
 
-**After each trade completes:**
-1. Refresh trending list: `cd /home/j/.openclaw/workspace/jupbot && node refreshTrending.mjs`
-2. Scan for: newest coins + strongest 5m/1h momentum (prioritize fresh launches)
-3. Enter position: **0.03-0.04 SOL** (~5-8% capital)
-4. Monitor for TP (+5%) or **SL (-1.5%)** - STRICT
-5. Exit immediately if momentum stalls or reverses
-6. Repeat workflow
+**Configuration:**
+- Position size: **0.08 SOL** (~15-20% capital)
+- Take Profit: **+5%** (hard limit)
+- Stop Loss: **-3%** (hard limit)
+- Slippage: **10%** (volatile tokens)
+- Price polling: **3 seconds** (fast reaction ⚡)
+- List refresh: **5 minutes** (catch new momentum)
+- ONE coin at a time (focused capital)
 
-**Exit criteria:**
-- **TP:** +5% (let winners run)
-- **SL:** -1.5% (cut losers fast!)
-- Exit early if: 5m momentum goes negative OR price stalls >3 minutes
-- Fresh tokens each trade = chase the hottest momentum
+**Entry Criteria (RISKIER - Early Snipes):**
+- Market Cap: $50K - $10M (allows smaller caps)
+- Liquidity: $8.5K+ (matches DexScreener "Riskier")
+- Age: 0.5h - 72h (fresh launches)
+- 1h Volume: $20K+ (immediate activity)
+- 5min Volume: $3K+ (catching momentum early)
+- **Must have +5% 1h momentum** (currently moving)
+- NO stablecoins (direct SOL only)
+- **Picks hottest coin from list** (highest 1h momentum)
+
+**Exit Criteria (Momentum-Based):**
+1. **Take Profit:** +5% (hard limit, take wins)
+2. **Stop Loss:** -3% (hard limit, cut losses)
+3. **Momentum Fade:** Exit if 1h momentum drops below 5%
+4. **Volume Drop:** Exit if 1h volume drops >30% from entry
+5. **Price Stall:** Exit if no movement for 2 minutes
+6. **Max Hold:** 4 hours (don't baghold)
+
+**Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
+
+# Entry Monitor - ACTIVE 2026-02-11 15:30
+## Entry Signal Monitor (every 60s)
+1. Read trending_tokens_feb9.json
+2. Analyze each token's chart (5min, 1h momentum, volume trend)
+3. Evaluate entry signal based on criteria:
+   - 5min: ≥+2% (positive short-term momentum)
+   - 1h: ≥+10% (strong trend)
+   - Volume: 5min vol ≥1.5x the 1h average (buying pressure)
+   - Buy/Sell: ≥55% buys (healthy demand)
+4. Alert when GOOD or MODERATE entry detected
+5. Save alerts to memory/entry-alerts.json
 
 # Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)
