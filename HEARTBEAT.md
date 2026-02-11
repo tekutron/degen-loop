@@ -1,5 +1,22 @@
 # HEARTBEAT.md
 
+## Trading Workflow (Aggressive Momentum Scalping)
+**Strategy:** Smaller positions, tighter stops, focus on fresh momentum
+
+**After each trade completes:**
+1. Refresh trending list: `cd /home/j/.openclaw/workspace/jupbot && node refreshTrending.mjs`
+2. Scan for: newest coins + strongest 5m/1h momentum (prioritize fresh launches)
+3. Enter position: **0.03-0.04 SOL** (~5-8% capital)
+4. Monitor for TP (+5%) or **SL (-1.5%)** - STRICT
+5. Exit immediately if momentum stalls or reverses
+6. Repeat workflow
+
+**Exit criteria:**
+- **TP:** +5% (let winners run)
+- **SL:** -1.5% (cut losers fast!)
+- Exit early if: 5m momentum goes negative OR price stalls >3 minutes
+- Fresh tokens each trade = chase the hottest momentum
+
 # Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)
 # 1. Read `/home/j/.openclaw/workspace/jupbot/cycle_state.json`
