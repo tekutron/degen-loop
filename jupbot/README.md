@@ -1,34 +1,26 @@
-# Solana Trading Bot
+# Solana Meme Token Trading Bot
 
-Automated trading bot for Solana SPL tokens using Raydium pools and Jupiter Ultra Swap API.
+Automated/manual trading bot for Solana meme tokens using Raydium SDK and Jupiter aggregation.
 
 ## Features
 
-- **Multi-DEX Aggregation**: Raydium (CLMM, CPMM, AMM v4) + Jupiter Ultra API
-- **Auto-Refreshing Hot Trending**: Updates every 1 minute with fresh trending memes from DexScreener for aggressive scalping
-- **Balanced Scalping**: 5% take profit, 2% stop loss, 1% slippage for optimal risk/reward
-- **Automated Trading**: Buy → Monitor → TP/SL exit cycle with sub-10s monitoring
-- **Jupiter Ultra API**: Next-gen swap aggregation with sub-second landing via Jupiter Beam
-- **Priority Fees**: 0.001 SOL per transaction for faster confirmation
-- **Web UI**: Real-time dashboard with active trades, completed history, and live trending tokens
+- **Multi-DEX Aggregation**: Raydium (CLMM, CPMM, AMM v4) + Jupiter API fallback
+- **Hot Trending Tokens**: Auto-refreshing list from DexScreener (configurable interval)
+- **TOKEN_2022 Support**: Detects tokens using Token Extensions Program
+- **Flexible Trading Modes**: Automated cycle or manual scalping
+- **Safe Swap Utilities**: Jupiter-only swap with stablecoin filters
+- **Web Dashboard**: Real-time monitoring at http://localhost:3000
 
-## Architecture
+## Current Strategy (Manual Scalping)
 
-### Trading Engine
-- **degenCycle.mjs**: Main trading loop (fetch trending → buy → monitor → sell)
-- **sdkSwap.mjs**: Universal swap executor (Raydium SDK + Jupiter Ultra API)
-- **liquidateAll.mjs**: Emergency exit all positions to wSOL
-
-### Jupiter Ultra API Integration
-
-This bot uses **Jupiter Ultra Swap API** (v1) which provides:
-- **Meta-aggregation** across multiple sources (Iris, DFlow, OKX, JupiterZ RFQ)
-- **Best executed price** with predictive execution and slippage-aware routing
-- **Sub-second transaction landing** via Jupiter Beam proprietary engine
-- **Automatic priority fee optimization** with Real-Time Slippage Estimator (RTSE)
-- **MEV protection** with complete transaction privacy until on-chain execution
-
-**Migration from V6**: Jupiter deprecated the v6 quote API (`quote-api.jup.ag`) in favor of Ultra API (`api.jup.ag/ultra/v1/order`). This bot now exclusively uses Ultra API.
+**Aggressive Momentum Scalping:**
+- **Position size**: 0.03-0.04 SOL (~5-8% of capital)
+- **Take profit**: +5%
+- **Stop loss**: -1.5% (strict!)
+- **Priority fee**: 0.0001 SOL
+- **Slippage**: 1% (100 bps)
+- **Focus**: Fresh launches with strong 5m/1h momentum
+- **Workflow**: Refresh trending after each trade → Select best momentum → Enter → Exit at TP/SL
 
 ## Setup
 
@@ -57,17 +49,19 @@ cp .env.example .env
 2. **Required environment variables:**
 
 ```env
-# RPC endpoint (Helius recommended for reliability)
+# RPC endpoint (Helius recommended)
 HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
-
-# Jupiter API key (get from https://portal.jup.ag)
-JUPITER_API_KEY=your-jupiter-api-key
-
-# 0x API key (optional, for additional liquidity sources)
-ZEROX_API_KEY=your-0x-api-key
 
 # Wallet path
 SWAP_WALLET=./wallets/generated_keypair.json
+
+# Trading parameters
+SIZE_SOL=0.05              # Trade size per token
+SLIPPAGE_BPS=100           # Slippage tolerance (1%)
+TAKE_PROFIT_PCT=5          # Take profit % (5%)
+STOP_LOSS_PCT=2            # Stop loss % (2%)
+PRICE_POLL_MS=10000        # Price check interval (10s)
+TRENDING_REFRESH_MS=600000 # Trending list refresh (10 min)
 ```
 
 3. **Generate a trading wallet:**
@@ -78,200 +72,228 @@ node scripts/generate_wallet.js
 
 This creates `wallets/generated_keypair.json`. **Fund it with SOL** before trading.
 
-### Bot Configuration
+## Tools & Scripts
 
-Edit `.env` file for trading parameters:
-
-```env
-SIZE_SOL=0.05              # Trade size per token (minimum 0.05 SOL for Ultra API)
-SLIPPAGE_BPS=100           # Slippage tolerance (1%)
-TAKE_PROFIT_PCT=5          # Take profit % (5%)
-STOP_LOSS_PCT=2            # Stop loss % (2%)
-PRICE_POLL_MS=10000        # Price check interval (10s)
-TRENDING_REFRESH_MS=60000  # Trending list refresh (1 min - aggressive scalping)
-```
-
-**Current Strategy:**
-- **Balanced scalping**: 5% take profit, 2% stop loss for optimal risk/reward (2.5:1 ratio)
-- **Low slippage**: 1% tolerance for reliable execution
-- **Rapid cycles**: 1-minute token refresh, max 1-minute hold time per position
-- **Timeout protection**: Automatic sell after 1 minute to prevent zombie positions
-
-**Important**: Jupiter Ultra API has a **minimum trade size of ~0.05 SOL**. Lower amounts will fail with "Insufficient funds" or "Route not found".
-
-## Usage
-
-### Start Trading Bot
+### Core Trading
 
 ```bash
-# Run in foreground
+# Start automated trading bot
 node degenCycle.mjs
 
-# Run in background
-nohup node degenCycle.mjs > cycle.log 2>&1 &
-```
-
-### Check Wallet Balance
-
-```bash
-node checkWallet.mjs
-```
-
-### Test a Swap
-
-```bash
-# Edit testSwap.mjs to configure test parameters
-node testSwap.mjs
-```
-
-### Liquidate All Positions
-
-```bash
-# Emergency exit: sell all SPL tokens to wSOL
-MAIN_WALLET=1 node liquidateAll.mjs
-```
-
-### Unwrap wSOL to Native SOL
-
-```bash
-# Convert wrapped SOL to native SOL for transaction fees
-node unwrapSol.mjs
-```
-
-### Refresh Hot Trending List (Manual)
-
-```bash
-# Fetch fresh trending memes from DexScreener
+# Refresh trending list manually
 node refreshTrending.mjs
 ```
 
-**Auto-refresh**: The trending list updates automatically every 1 minute via OpenClaw cron job. This ensures the bot always trades the hottest trending memes with aggressive scalping frequency.
+### Wallet Management
+
+```bash
+# Check wallet balance (supports TOKEN_2022_PROGRAM_ID)
+node checkWallet.mjs
+
+# Sell all token positions to SOL
+node sellAllTokens.mjs
+
+# Unwrap wSOL to native SOL
+node unwrapSol.mjs
+```
+
+### Swap Utilities
+
+```bash
+# Safe Jupiter-only swap (blocks stablecoins)
+node safeSwap.mjs <inputMint> <outputMint> <amountLamports> [slippageBps]
+
+# Universal swap (Raydium SDK + Jupiter fallback)
+SWAP_WALLET=wallets/generated_keypair.json \
+INPUT_MINT=<mint> \
+OUTPUT_MINT=<mint> \
+AMOUNT_LAMPORTS=<amount> \
+node sdkSwap.mjs
+
+# Sell 100% of a token
+SWAP_WALLET=wallets/generated_keypair.json \
+INPUT_MINT=<token_mint> \
+OUTPUT_MINT=So11111111111111111111111111111111111111112 \
+AMOUNT_LAMPORTS=0 \
+node sdkSwap.mjs
+```
+
+## Trending Token Refresh
+
+The bot uses DexScreener's trending API with these filters:
 
 **Criteria:**
+- Min $10K liquidity
 - Min $100K 24h volume
-- Min $20K liquidity
-- **Tier 2 (Stable)**: $500K+ volume, $50K+ liquidity, <100% 24h swing
-- **High Risk**: Everything else meeting minimums
-- **Target mix**: 60% Tier 2 / 40% High Risk (9 + 6 = 15 tokens)
+- **Tier 2 (Prime Scalping)**: $500K+ volume, $50K+ liquidity, <100% 24h swing
+- **Tier 1 (High Volatility)**: Everything else meeting minimums
+- **Target mix**: 60% Tier 2 / 40% High Risk
 
-## Priority Fees
+**Auto-refresh**: Configurable via `TRENDING_REFRESH_MS` in `.env` or bot settings.
 
-The bot adds a **0.001 SOL (1,000,000 lamports)** priority fee to all Jupiter swaps for faster confirmation. This is hardcoded in `sdkSwap.mjs`:
-
-```javascript
-priorityFeeLamports: 1000000  // 0.001 SOL
+**Manual refresh:**
+```bash
+node refreshTrending.mjs
 ```
 
-To adjust, modify the `getJupiterQuote` calls in `sdkSwap.mjs`.
-
-## Web Dashboard
-
-A Next.js web app displays:
-- Active trades with entry/exit prices, P&L
-- Top volume coins being traded (1h Raydium)
-- Real-time position tracking
-
-Located in `/apps/web` (separate repo: `tekutron/degen-loop`).
-
-## API Endpoints
-
-### Jupiter Ultra API
-
-**Base URL**: `https://api.jup.ag/ultra/v1`
-
-**Get Order (Quote + Transaction)**:
-```
-GET /order?inputMint={mint}&outputMint={mint}&amount={lamports}&slippageBps={bps}&mode=ExactIn&taker={wallet}&prioritizationFeeLamports={lamports}
-```
-
-Response includes:
-- `transaction`: Base64-encoded versioned transaction (ready to sign)
-- `inAmount`, `outAmount`: Trade amounts
-- `routePlan`: Liquidity sources used
-- `prioritizationFeeLamports`: Priority fee included
-
-**Headers**:
-```
-x-api-key: YOUR_JUPITER_API_KEY
-```
-
-### Raydium Trade API
-
-**Compute Swap**:
-```
-GET https://transaction-v1.raydium.io/compute/swap-base-in
-```
-
-Used for CLMM/CPMM pool routing when available.
-
-## Troubleshooting
-
-### "Route not found"
-
-**Cause**: Trade size too small or insufficient liquidity.
-
-**Fix**: 
-- Increase `sizeSol` to at least 0.05 SOL
-- Check token liquidity on DexScreener
-
-### Transaction timeout (30s)
-
-**Cause**: Network congestion or insufficient priority fee.
-
-**Fix**:
-- Increase priority fee in `sdkSwap.mjs` (e.g., to 2,000,000 lamports)
-- Use a better RPC endpoint (Helius, Triton, QuickNode)
-
-### "Insufficient funds" (Ultra API)
-
-**Cause**: Wallet doesn't have enough SOL/tokens, or trade size below minimum.
-
-**Fix**:
-- Fund wallet with more SOL
-- Increase trade size to ≥0.05 SOL
-- Unwrap wSOL to native SOL: `node unwrapSol.mjs`
-
-## File Structure
+## Key Files
 
 ```
 jupbot/
-├── degenCycle.mjs          # Main trading loop
-├── sdkSwap.mjs             # Swap execution (Raydium + Jupiter Ultra)
-├── liquidateAll.mjs        # Emergency exit
+├── degenCycle.mjs          # Automated trading loop
+├── sdkSwap.mjs             # Universal swap executor (Raydium SDK + Jupiter)
+├── safeSwap.mjs            # Jupiter-only swap with stablecoin filter
+├── sellAllTokens.mjs       # Bulk position cleanup
+├── checkWallet.mjs         # Balance checker (TOKEN_2022 support)
+├── refreshTrending.mjs     # Fetch trending tokens from DexScreener
 ├── unwrapSol.mjs           # wSOL → native SOL converter
-├── checkWallet.mjs         # Balance checker
-├── testSwap.mjs            # Swap testing utility
-├── cycle_state.json        # Bot config + runtime state
-├── positions.json          # Open positions tracker
-├── wallets/
-│   └── generated_keypair.json
-└── scripts/
-    └── generate_wallet.js
+├── liquidateAll.mjs        # Emergency exit all positions
+├── cycle_state.json        # Bot runtime state
+├── cycle_trades.json       # Trade history
+├── positions.json          # Open positions
+├── trending_tokens_feb9.json # Hot trending memes list
+└── wallets/
+    └── generated_keypair.json
 ```
 
-## Development
+## New Features
 
-### Key Changes from V6 → Ultra API
+### TOKEN_2022_PROGRAM_ID Support
 
-1. **Endpoint**: `quote-api.jup.ag/v6/quote` → `api.jup.ag/ultra/v1/order`
-2. **Response**: Separate quote + swap calls → Single order response with transaction
-3. **Transaction**: Legacy + Versioned support → Versioned only (V0)
-4. **Priority fees**: Manual compute budget → Built-in `prioritizationFeeLamports` param
-5. **Swap instructions**: Supported → Not supported (transaction pre-built)
+`checkWallet.mjs` now detects tokens using the Token Extensions Program (TOKEN_2022_PROGRAM_ID):
 
-### Transaction Flow (Ultra API)
+```javascript
+import { TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID } from '@solana/spl-token';
+
+// Checks both programs
+const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
+  walletAddress,
+  { programId: TOKEN_PROGRAM_ID }
+);
+const token2022Accounts = await connection.getParsedTokenAccountsByOwner(
+  walletAddress,
+  { programId: TOKEN_2022_PROGRAM_ID }
+);
+```
+
+Many newer meme tokens use TOKEN_2022 and were invisible to older wallet checkers.
+
+### Safe Swap Utility
+
+`safeSwap.mjs` provides Jupiter-only routing with built-in protections:
+
+- **Blocks stablecoin purchases** (USDC, USDT, USD1, USDH)
+- **Jupiter API only** (bypasses Raydium SDK issues)
+- **Simple CLI interface**: `node safeSwap.mjs <input> <output> <amount> [slippage]`
+
+**Example:**
+```bash
+# Sell token for SOL
+node safeSwap.mjs \
+  8ckfBhNvEDA62udk4YGNbSYcd5wvmQDjhY6kAYsgpump \
+  So11111111111111111111111111111111111111112 \
+  1000000
+```
+
+### Bulk Position Cleanup
+
+`sellAllTokens.mjs` scans wallet and sells all non-SOL tokens:
+
+```bash
+node sellAllTokens.mjs
+```
+
+Automatically:
+- Skips wSOL (wrapped SOL)
+- Uses higher slippage (300 bps) for faster execution
+- Reports success/failure for each token
+
+## Web Dashboard
+
+A Next.js dashboard displays:
+- Active trades with entry/exit prices, P&L
+- Completed trade history
+- Live trending tokens (auto-updates every 5 min)
+- Wallet positions
+
+**Location**: `/home/j/degen-loop` (separate repo)
+**Access**: http://localhost:3000
+
+The dashboard reads JSON files from this workspace:
+- `cycle_state.json`
+- `cycle_trades.json`
+- `positions.json`
+- `trending_tokens_feb9.json`
+
+## Troubleshooting
+
+### "Route not found" (Jupiter API)
+
+**Causes:**
+- Trade size too small (< 0.01 SOL)
+- Insufficient liquidity
+- Token doesn't have pools on Jupiter-supported DEXs
+
+**Fix:**
+- Increase trade size
+- Check token liquidity on DexScreener
+- Try `sdkSwap.mjs` (uses Raydium SDK as fallback)
+
+### RPC Rate Limiting (429 errors)
+
+**Cause:** Too many rapid requests to Helius/Solana RPC
+
+**Fix:**
+- Space out wallet checks (add delays)
+- Use a dedicated RPC endpoint
+- Reduce polling frequency
+
+### Transaction Failures
+
+**Common causes:**
+- Slippage too tight (increase to 200-300 bps for volatile tokens)
+- Priority fee too low (increase in sdkSwap.mjs)
+- Token pool liquidity dried up (check DexScreener)
+- Blockhash expired (transaction took >60s to build)
+
+### Jupiter API Down (404/DNS errors)
+
+**Fallback:** Use `sdkSwap.mjs` which tries Raydium SDK first, Jupiter as backup.
+
+## Development Notes
+
+### Swap Execution Flow (sdkSwap.mjs)
 
 ```
-1. GET /ultra/v1/order → Returns quote + base64 transaction
-2. Deserialize as VersionedTransaction
-3. Sign with wallet keypair
-4. sendRawTransaction with maxRetries + preflightCommitment
-5. confirmTransaction
+1. Try Jupiter Ultra API quote + order
+   ↓ (if fails)
+2. Try Raydium SDK (CLMM/CPMM pools)
+   ↓ (if fails)
+3. Return error
 ```
+
+### Priority Fees
+
+Current setting: **0.0001 SOL (100,000 lamports)**
+
+Higher fees = faster confirmation but more cost. Adjust in `sdkSwap.mjs`:
+
+```javascript
+priorityFeeLamports: 100000  // 0.0001 SOL
+```
+
+### Token Extensions (TOKEN_2022)
+
+Newer Solana tokens may use the Token Extensions Program which adds features like:
+- Transfer fees
+- Confidential transfers
+- Permanent delegation
+
+Always check for TOKEN_2022 tokens in wallet scans to avoid missing positions.
 
 ## Contributing
 
-This is a personal trading bot. Use at your own risk. No warranty or support provided.
+Personal project. Use at your own risk. No warranty or support provided.
 
 ## License
 
@@ -279,4 +301,4 @@ MIT
 
 ## Disclaimer
 
-**Trading cryptocurrencies carries risk**. This bot is experimental software. Only trade amounts you can afford to lose. Always test on devnet first. Not financial advice.
+**Trading cryptocurrencies carries significant risk.** This bot is experimental software. Only trade amounts you can afford to lose. Test thoroughly on devnet before mainnet. Not financial advice.
