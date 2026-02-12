@@ -36,7 +36,7 @@
 
 **Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
 
-# Auto-Trading Bot - ACTIVE 2026-02-11 21:15 (NO 1H FILTER)
+# Auto-Trading Bot - ACTIVE 2026-02-11 21:21 (MONITORED MODE)
 ## Automated Entry + Trade Execution (STRICT CRITERIA)
 1. Read trending_tokens_feb9.json (refreshes every 5min)
 2. Analyze each token's chart with real-time 1m momentum tracking
@@ -50,8 +50,18 @@
 5. Exits on: TP (+5%), SL (-3%), momentum fade (<5% 1h), volume drop (>30%), stall (2min)
 6. After exit, resumes scanning for next qualified token
 7. **Strategy:** Catch tokens pumping NOW on short timeframes
+8. **ACTIVELY MONITORED** - Check trades every heartbeat, alert on entry/exit
 
-# Trading Bot Monitor - DISABLED 2026-02-09
+# Trading Bot Monitor - ACTIVE 2026-02-11 21:21
+## Monitor Active Trades (every heartbeat)
+1. Check if bot is running (process status)
+2. Read momentum_state.json for current position
+3. If position is open:
+   - Track P&L, momentum, volume
+   - Alert on: Entry, approaching TP/SL, momentum fade, exit
+4. Save last check state to memory/trade-monitor-state.json
+
+# Old Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)
 # 1. Read `/home/j/.openclaw/workspace/jupbot/cycle_state.json`
 # 2. Read `/home/j/.openclaw/workspace/jupbot/cycle_trades.json`
