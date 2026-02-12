@@ -1,0 +1,13 @@
+{
+  "lastCheck": "2026-02-12T05:27:00.000Z",
+  "currentTrade": {
+    "symbol": "THEDOW",
+    "mint": "F1PW5JgpKX1VvVHAWiB2gwHovvjYm9KdMSQYSripump",
+    "entryTime": "2026-02-12T05:24:47.925Z",
+    "entryPrice": 0.0001009,
+    "tpPrice": 0.000106,
+    "slPrice": 0.000098,
+    "lastPnl": 0.00,
+    "alerted": true
+  }
+}
