@@ -1,0 +1,28 @@
+[
+  {
+    "timestamp": "2026-02-12T04:49:25.432Z",
+    "symbol": "CROW",
+    "mint": "4FNd2MnoGN6H1amFGfB7bQoZq4bnwBtfWCJm8N7upump",
+    "signal": "GOOD",
+    "price": "0.00009382",
+    "m1": 63.50644823980481,
+    "m5": 91.62,
+    "h1": 183,
+    "volRatio": 3.233653986755422,
+    "buyRatio": 59.500901984365605,
+    "dexUrl": "https://dexscreener.com/solana/gfmwfqrtkdwybrs1jnnjvfnhx2djargsmmprnhyzbaa4"
+  },
+  {
+    "timestamp": "2026-02-12T04:47:24.690Z",
+    "symbol": "LUSTROUS",
+    "mint": "Cxoomqs2bRKT1x5RMJrgmau3bjBfTvRCbFvprSfQpump",
+    "signal": "MODERATE",
+    "price": "0.00008211",
+    "m1": 8.496300211416496,
+    "m5": 10.07,
+    "h1": 32.68,
+    "volRatio": 1.0615347202625496,
+    "buyRatio": 66.09732230228627,
+    "dexUrl": "https://dexscreener.com/solana/9cji9xqcnn2qvnbuwuojxemukyuzxtbyliru4y851d2q"
+  }
+]

@@ -15,7 +15,7 @@
 **Entry Criteria (RISKIER - Early Snipes with 1m Gate):**
 - Market Cap: $50K - $10M (allows smaller caps)
 - Liquidity: $8.5K+ (matches DexScreener "Riskier")
-- Age: 0.5h - 2 years (allows established tokens)
+- Age: 20min - 2 years (catch early launches)
 - 1h Volume: $10K+ (immediate activity)
 - 5min Volume: $1K+ (catching momentum early)
 - **1m momentum: ≥+1%** (pumping RIGHT NOW - prevents buying tops)

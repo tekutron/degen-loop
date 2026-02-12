@@ -81,8 +81,8 @@ async function fetchHotTrendingMemes() {
         // 2. Liquidity: $8.5K+ (Riskier tier minimum)
         if (liquidityUsd < 8500) { debugCounts.liqFail++; continue; }
         
-        // 3. Pair Age: 0.5h - 2 years (allow any age)
-        if (ageHours < 0.5 || ageHours > 17520) { debugCounts.ageFail++; continue; }
+        // 3. Pair Age: 20min - 2 years (catch early launches)
+        if (ageHours < 0.33 || ageHours > 17520) { debugCounts.ageFail++; continue; }
         
         // 4. 1h volume: $10K+ minimum (immediate activity)
         if (volumeH1 < 10000) { debugCounts.vol1hFail++; continue; }
