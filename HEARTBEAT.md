@@ -36,20 +36,20 @@
 
 **Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
 
-# Auto-Trading Bot - ACTIVE 2026-02-11 20:54
-## Automated Entry + Trade Execution (every 60s)
-1. Read trending_tokens_feb9.json
+# Auto-Trading Bot - ACTIVE 2026-02-11 21:10 (FIXED)
+## Automated Entry + Trade Execution (STRICT CRITERIA)
+1. Read trending_tokens_feb9.json (refreshes every 5min)
 2. Analyze each token's chart with real-time 1m momentum tracking
-3. Evaluate entry signal based on ALL criteria:
-   - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying tops!)
-   - 5min: ≥+2% (positive short-term momentum)
-   - 1h: ≥+10% (strong trend)
-   - Volume: 5min vol ≥1.5x the 1h average (buying pressure)
-   - Buy/Sell: ≥55% buys (healthy demand)
-4. When GOOD signal detected: **Auto-start momentum bot** to trade
-5. Bot manages position (monitors momentum fade, TP, SL)
-6. After exit, resume monitoring for next opportunity
-7. **Fully automated** - no manual intervention needed
+3. **ONLY enter when ALL criteria pass** (no "highest 1h" selection):
+   - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying falling knives!)
+   - **5min: ≥+2%** (positive short-term momentum)
+   - **1h: ≥+10%** (strong trend, but NOT the main filter)
+   - **Volume: ≥1.5x** (5min vol vs 1h avg - buying pressure)
+   - **Buy ratio: ≥55%** (healthy demand)
+4. Bot auto-buys when token passes ALL gates
+5. Exits on: TP (+5%), SL (-3%), momentum fade (<5%), volume drop (>30%), stall (2min)
+6. After exit, resumes scanning for next qualified token
+7. **Fixed:** No longer buys tokens with high 1h but dumping on 1m/5m
 
 # Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)
