@@ -67,6 +67,21 @@
    - Alert on: Entry, approaching TP/SL, momentum fade, exit
 4. Save last check state to memory/trade-monitor-state.json
 
+# Daily Reflection - ACTIVE 2026-02-12
+## Self-Reflection (once per day, evening preferred)
+Track in memory/heartbeat-state.json: `lastReflection` timestamp
+
+If 20+ hours since lastReflection (or never run):
+1. Run `/home/j/.openclaw/skills/daily-reflection/scripts/reflect.py`
+2. Review generated reflection in `memory/reflections/YYYY-MM-DD.md`
+3. Extract 2-3 key lessons from the reflection
+4. Update MEMORY.md with important insights (if any worth keeping)
+5. Update lastReflection timestamp in memory/heartbeat-state.json
+
+**Why it matters:** Systematic reflection turns experience into wisdom. Without it, we repeat mistakes and lose learning opportunities.
+
+**Timing:** Evening (19:00-23:00) preferred so you can review the full day.
+
 # Old Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)
 # 1. Read `/home/j/.openclaw/workspace/jupbot/cycle_state.json`
