@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * monitorEntries.mjs - Monitor tokens and alert on good entry signals
+ * Now with 1-minute momentum tracking
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,10 +14,14 @@ const ALERT_FILE = path.join(MEMORY_DIR, 'entry-alerts.json');
 const CHECK_INTERVAL_MS = 60000; // Check every 60 seconds
 
 // Entry criteria
+const MIN_1M_CHANGE = 1;        // +1% in 1min (RIGHT NOW gate)
 const MIN_5MIN_CHANGE = 2;      // +2% in 5min
 const MIN_1H_CHANGE = 10;       // +10% in 1h
 const MIN_VOL_RATIO = 1.5;      // 5min vol must be 1.5x the 1h average
 const MIN_BUY_RATIO = 55;       // 55%+ buys
+
+// Price history for 1m momentum (stores last 60s of prices per mint)
+const priceHistory = new Map();
 
 async function analyzeToken(mint, symbol) {
   try {
@@ -43,10 +48,33 @@ async function analyzeToken(mint, symbol) {
     const liq = p.liquidity?.usd || 0;
     const mc = p.fdv || 0;
     
+    // Calculate 1m momentum
+    const now = Date.now();
+    let m1 = 0;
+    
+    if (!priceHistory.has(mint)) {
+      priceHistory.set(mint, []);
+    }
+    
+    const history = priceHistory.get(mint);
+    history.push({ price, timestamp: now });
+    
+    // Keep only last 120 seconds of data (2 data points at 60s intervals)
+    const cutoff = now - 120000;
+    const filtered = history.filter(h => h.timestamp > cutoff);
+    priceHistory.set(mint, filtered);
+    
+    // Calculate 1m change if we have data from ~60s ago
+    if (filtered.length >= 2) {
+      const oldPrice = filtered[0].price;
+      m1 = ((price - oldPrice) / oldPrice) * 100;
+    }
+    
     return {
       symbol,
       mint,
       price,
+      m1,
       m5,
       h1,
       vol5m,
@@ -65,10 +93,11 @@ async function analyzeToken(mint, symbol) {
 function evaluateEntry(data) {
   if (!data) return { signal: 'ERROR', reason: 'Failed to fetch data' };
   
-  const { m5, h1, volRatio, buyRatio } = data;
+  const { m1, m5, h1, volRatio, buyRatio } = data;
   
   // Check all criteria
   const checks = {
+    m1Pumping: m1 >= MIN_1M_CHANGE,      // NEW: 1m momentum gate
     m5Positive: m5 >= MIN_5MIN_CHANGE,
     h1Strong: h1 >= MIN_1H_CHANGE,
     volumeStrong: volRatio >= MIN_VOL_RATIO,
@@ -80,21 +109,37 @@ function evaluateEntry(data) {
   if (passedAll) {
     return {
       signal: 'GOOD',
-      reason: `✅ ALL CRITERIA MET: 5m: +${m5.toFixed(1)}%, 1h: +${h1.toFixed(1)}%, Vol: ${volRatio.toFixed(1)}x, Buys: ${buyRatio.toFixed(0)}%`,
-      score: m5 + h1 + volRatio * 10
+      reason: `✅ ALL CRITERIA MET: 1m: +${m1.toFixed(1)}%, 5m: +${m5.toFixed(1)}%, 1h: +${h1.toFixed(1)}%, Vol: ${volRatio.toFixed(1)}x, Buys: ${buyRatio.toFixed(0)}%`,
+      score: m1 * 2 + m5 + h1 + volRatio * 10
     };
   }
   
-  // Moderate entry
+  // Moderate entry (missing 1m pump but otherwise good)
   if (checks.m5Positive && checks.h1Strong && volRatio >= 1.0) {
+    if (m1 < MIN_1M_CHANGE) {
+      return {
+        signal: 'WAIT',
+        reason: `⏸️  Good setup but waiting for 1m pump: 1m: ${m1.toFixed(1)}%, 5m: +${m5.toFixed(1)}%, 1h: +${h1.toFixed(1)}%`,
+        score: 0
+      };
+    }
     return {
       signal: 'MODERATE',
-      reason: `🟡 Good momentum but lower volume: 5m: +${m5.toFixed(1)}%, 1h: +${h1.toFixed(1)}%, Vol: ${volRatio.toFixed(1)}x`,
-      score: m5 + h1 + volRatio * 5
+      reason: `🟡 Good momentum, lower volume: 1m: +${m1.toFixed(1)}%, 5m: +${m5.toFixed(1)}%, 1h: +${h1.toFixed(1)}%, Vol: ${volRatio.toFixed(1)}x`,
+      score: m1 * 2 + m5 + h1 + volRatio * 5
     };
   }
   
-  // Bad entry - dumping
+  // Bad entry - dumping NOW
+  if (m1 < -2) {
+    return {
+      signal: 'BAD',
+      reason: `❌ Dumping NOW: 1m: ${m1.toFixed(1)}%`,
+      score: 0
+    };
+  }
+  
+  // Bad entry - dumping on 5m
   if (m5 < -5) {
     return {
       signal: 'BAD',
@@ -115,14 +160,14 @@ function evaluateEntry(data) {
   // Wait
   return {
     signal: 'WAIT',
-    reason: `⏸️  No clear signal: 5m: ${m5.toFixed(1)}%, 1h: ${h1.toFixed(1)}%, Vol: ${volRatio.toFixed(1)}x`,
+    reason: `⏸️  No clear signal: 1m: ${m1.toFixed(1)}%, 5m: ${m5.toFixed(1)}%, 1h: ${h1.toFixed(1)}%, Vol: ${volRatio.toFixed(1)}x`,
     score: 0
   };
 }
 
 async function monitor() {
-  console.log('👀 Monitoring for good entry signals...');
-  console.log(`   Criteria: 5m ≥${MIN_5MIN_CHANGE}% | 1h ≥${MIN_1H_CHANGE}% | Vol ≥${MIN_VOL_RATIO}x | Buys ≥${MIN_BUY_RATIO}%\n`);
+  console.log('👀 Monitoring for good entry signals (with 1m momentum gate)...');
+  console.log(`   Criteria: 1m ≥${MIN_1M_CHANGE}% | 5m ≥${MIN_5MIN_CHANGE}% | 1h ≥${MIN_1H_CHANGE}% | Vol ≥${MIN_VOL_RATIO}x | Buys ≥${MIN_BUY_RATIO}%\n`);
   
   let lastAlertTime = {};
   
@@ -186,6 +231,7 @@ async function monitor() {
               mint: t.mint,
               signal: entry.signal,
               price: analysis.price,
+              m1: analysis.m1,
               m5: analysis.m5,
               h1: analysis.h1,
               volRatio: analysis.volRatio,

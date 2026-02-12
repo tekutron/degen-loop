@@ -4,7 +4,7 @@
 **Strategy:** Early snipes on fresh launches, ride momentum UP, exit when it fades
 
 **Configuration:**
-- Position size: **0.08 SOL** (~15-20% capital)
+- Position size: **0.05 SOL** (~10-12% capital)
 - Take Profit: **+5%** (hard limit)
 - Stop Loss: **-3%** (hard limit)
 - Slippage: **10%** (volatile tokens)
@@ -12,15 +12,19 @@
 - List refresh: **5 minutes** (catch new momentum)
 - ONE coin at a time (focused capital)
 
-**Entry Criteria (RISKIER - Early Snipes):**
+**Entry Criteria (RISKIER - Early Snipes with 1m Gate):**
 - Market Cap: $50K - $10M (allows smaller caps)
 - Liquidity: $8.5K+ (matches DexScreener "Riskier")
 - Age: 0.5h - 72h (fresh launches)
 - 1h Volume: $20K+ (immediate activity)
 - 5min Volume: $3K+ (catching momentum early)
-- **Must have +5% 1h momentum** (currently moving)
+- **1m momentum: ≥+1%** (pumping RIGHT NOW - prevents buying tops)
+- **5m momentum: ≥+2%** (positive short-term)
+- **1h momentum: ≥+10%** (strong trend)
+- **Volume ratio: ≥1.5x** (5min vs 1h avg - buying pressure)
+- **Buy ratio: ≥55%** (healthy demand)
 - NO stablecoins (direct SOL only)
-- **Picks hottest coin from list** (highest 1h momentum)
+- **Picks hottest coin from list** (highest combined momentum)
 
 **Exit Criteria (Momentum-Based):**
 1. **Take Profit:** +5% (hard limit, take wins)
@@ -32,17 +36,19 @@
 
 **Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
 
-# Entry Monitor - ACTIVE 2026-02-11 15:30
-## Entry Signal Monitor (every 60s)
+# Entry Monitor - ACTIVE 2026-02-11 20:20
+## Entry Signal Monitor (every 60s) - NOW WITH 1M GATE
 1. Read trending_tokens_feb9.json
-2. Analyze each token's chart (5min, 1h momentum, volume trend)
-3. Evaluate entry signal based on criteria:
+2. Analyze each token's chart with real-time 1m momentum tracking
+3. Evaluate entry signal based on ALL criteria:
+   - **1min: ≥+1%** (pumping RIGHT NOW - NEW!)
    - 5min: ≥+2% (positive short-term momentum)
    - 1h: ≥+10% (strong trend)
    - Volume: 5min vol ≥1.5x the 1h average (buying pressure)
    - Buy/Sell: ≥55% buys (healthy demand)
 4. Alert when GOOD or MODERATE entry detected
 5. Save alerts to memory/entry-alerts.json
+6. 1m gate prevents buying tops of 5m candles
 
 # Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)

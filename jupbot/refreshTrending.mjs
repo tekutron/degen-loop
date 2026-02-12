@@ -21,7 +21,7 @@ const STABLECOINS = new Set([
 ]);
 
 async function fetchHotTrendingMemes() {
-  console.log('📊 Fetching RISKIER SCALPING targets (Early Snipes) from DexScreener...');
+  console.log('📊 Fetching MICRO SCALPING targets (5min activity focus) from DexScreener...');
   
   try {
     const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
@@ -69,57 +69,55 @@ async function fetchHotTrendingMemes() {
         const pairAge = p?.pairCreatedAt ? now - p.pairCreatedAt : 999999999;
         const ageHours = pairAge / (1000 * 60 * 60);
         
-        // RISKIER SCALPING FILTERS (DexScreener "Early Snipes" tier)
+        // MICRO SCALPING FILTERS (High volume + liquidity for quick flips)
         
-        // 1. Market Cap: $50K - $10M (very riskier - allow smaller caps)
-        if (fdv < 50000 || fdv > 10000000) continue;
+        // 1. Market Cap: $100K - $20M (focus on liquid coins)
+        if (fdv < 100000 || fdv > 20000000) continue;
         
-        // 2. Liquidity: $8.5K+ (matches document "Riskier" tier exactly)
-        if (liquidityUsd < 8500) continue;
+        // 2. Liquidity: $15K+ (loosened for more candidates)
+        if (liquidityUsd < 15000) continue;
         
-        // 3. Pair Age: 0.5h - 72h (extended to catch more coins)
-        if (ageHours < 0.5 || ageHours > 72) continue;
+        // 3. Pair Age: 0.5h - 120h (allow established + fresh)
+        if (ageHours < 0.5 || ageHours > 120) continue;
         
-        // 4. 24h volume: Track but don't filter (fresh coins won't have 24h history)
-        // Skip 24h volume filter for riskier tier
+        // 4. 24h volume: $100K+ (loosened for more candidates)
+        if (volumeH24 < 100000) continue;
         
-        // 5. 1h volume: $20K+ minimum (very loose for riskier)
-        if (volumeH1 < 20000) continue;
+        // 5. 5min volume: $5K+ minimum (MUST be active RIGHT NOW)
+        if (volumeM5 < 5000) continue;
         
-        // 6. 5min volume: $3K+ minimum (immediate activity)
-        if (volumeM5 < 3000) continue;
+        // 6. 1h volume: $30K+ minimum (sustained activity)
+        if (volumeH1 < 30000) continue;
         
-        // 7. CURRENT ACTIVITY: 1h volume should be >8% of 24h when applicable
-        const volumeRatio = volumeH1 / (volumeH24 || volumeH1); // Fallback for fresh coins
-        if (volumeRatio < 0.08 && volumeH24 > 0) continue;
+        // 7. 5min momentum: ANY positive movement (even +0.1%)
+        if (priceChangeM5 < 0.1) continue; // Must be moving up in 5min (or flat)
         
-        // 8. 1h momentum: +5%+ for riskier entry (catch earlier)
-        if (priceChange1h < 5) continue; // Allow lower entry, but still positive
-        
-        // 9. Price volatility: Track but allow wide range (riskier tier)
+        // 8. Price volatility: Track but allow wide range
         const volatility24h = Math.abs(priceChange24h);
         
-        // 10. Transactions: 100+ in 24h (real activity, but less strict than 1h)
+        // 9. Transactions: 100+ in 24h (real activity)
         if (txns24h < 100) continue;
         
-        // Calculate scalping score (riskier tier - prioritize immediate momentum)
-        const volumeM5Score = Math.min(volumeM5 / 1000, 30); // 5min volume (cap 30)
-        const volumeH1Score = Math.min(volumeH1 / 10000, 30); // 1h volume (cap 30)
-        const momentum1hScore = Math.min(priceChange1h, 60); // 1h momentum (cap 60)
-        const freshnessScore = Math.max(0, 20 - ageHours); // Reward fresh coins (newer = higher)
-        const scalpScore = volumeM5Score + volumeH1Score + momentum1hScore + freshnessScore;
+        // 10. 5min transactions: Track for spread analysis
         
-        // Tier system: Hot early snipes vs Fresh movers
-        let tier = '1'; // Fresh mover
+        // Calculate micro scalp score (5min activity + liquidity)
+        const volumeM5Score = Math.min(volumeM5 / 1000, 50); // 5min volume (cap 50) - PRIORITY
+        const liquidityScore = Math.min(liquidityUsd / 10000, 30); // Liquidity (cap 30)
+        const momentum5mScore = Math.min(priceChangeM5 * 5, 40); // 5min momentum (5x weight, cap 40)
+        const txnScore = Math.min(txns5m / 10, 30); // 5min txns (cap 30)
+        const scalpScore = volumeM5Score + liquidityScore + momentum5mScore + txnScore;
         
-        // Tier 2: Hot Early Snipe (fresh + strong momentum)
+        // Tier system: Prime scalp vs Active scalp
+        let tier = '1'; // Active scalp
+        
+        // Tier 2: Prime Micro Scalp (perfect conditions)
         if (
-          fdv >= 200000 && fdv <= 800000 && // Sweet spot MC for riskier ($200K-$800K)
-          liquidityUsd > 20000 && // Decent liquidity ($20K+)
+          fdv >= 500000 && fdv <= 5000000 && // Sweet spot MC ($500K-$5M)
+          liquidityUsd > 50000 && // High liquidity ($50K+)
           volumeM5 > 20000 && // Very active 5min ($20K+)
           volumeH1 > 100000 && // Strong 1h volume ($100K+)
-          priceChange1h >= 20 && priceChange1h <= 100 && // Hot momentum (20-100%)
-          ageHours < 12 // Fresh (under 12h)
+          priceChangeM5 >= 1 && priceChangeM5 <= 10 && // Good 5min momentum (1-10%)
+          txns5m > 50 // Tight spread (50+ txns in 5min)
         ) {
           tier = '2';
         }
@@ -163,12 +161,12 @@ async function fetchHotTrendingMemes() {
     // Target: 5 Elite + 10 Good = 15 tokens (focused selection)
     const final = [...tier2.slice(0, 5), ...tier1.slice(0, 10)];
     
-    console.log(`✅ Found ${final.length} tokens (${tier2.length} Hot Early Snipes, ${tier1.length} Fresh Movers)`);
+    console.log(`✅ Found ${final.length} tokens (${tier2.length} Prime Micro Scalps, ${tier1.length} Active Scalps)`);
     
     const output = {
       updatedAt: new Date().toISOString(),
-      source: 'DexScreener Riskier Scalping (Early Snipes)',
-      strategy: 'MC: $100K-$1M | Liq: $10K+ | Age: 0.5-48h | Vol1h: $50K+ | Vol5m: $10K+ | 1h: +10-200% | Fresh launches with momentum',
+      source: 'DexScreener Micro Scalping (5min Activity)',
+      strategy: 'MC: $100K-$20M | Liq: $30K+ | Vol24h: $200K+ | Vol1h: $50K+ | Vol5m: $10K+ | 5min: +0.5%+ | High liquidity for quick 1-3% flips',
       trending: final,
     };
     
