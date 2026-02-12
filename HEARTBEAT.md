@@ -20,12 +20,11 @@
 - 5min Volume: $1K+ (live trading confirmation)
 - NO stablecoins (direct SOL only)
 
-**Entry Criteria (Real-Time Momentum):**
-- **1m momentum: ≥+1%** (pumping RIGHT NOW - prevents buying tops)
+**Entry Criteria (FAST SCALPING - Simplified):**
 - **5m momentum: ≥+2%** (positive short-term)
-- **Volume ratio: ≥1.5x** (5min vs 1h avg - buying pressure)
-- **Buy ratio: ≥55%** (healthy demand)
-- **Picks token with highest 1m+5m score** when criteria met
+- **5m volume: ≥$1K** (live trading confirmation)
+- **Removed:** 1m gate, volume ratio, buy ratio (for speed)
+- **Picks token with highest 5m momentum** when criteria met
 
 **Exit Criteria (Momentum-Based):**
 1. **Take Profit:** +5% (hard limit, take wins)
