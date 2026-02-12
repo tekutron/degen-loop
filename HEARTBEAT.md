@@ -18,13 +18,14 @@
 - **Age: 30min - 12h** (active window, not brand new)
 - **1h Volume: $20K+** (real action happening)
 - 5min Volume: $1K+ (live trading confirmation)
+- **1h Momentum: <500%** (reject mega-pumps - they're traps)
 - NO stablecoins (direct SOL only)
 
-**Entry Criteria (FAST SCALPING - Simplified):**
+**Entry Criteria (OPTIMIZED - Quality over speed):**
 - **5m momentum: ≥+2%** (positive short-term)
 - **5m volume: ≥$1K** (live trading confirmation)
-- **Removed:** 1m gate, volume ratio, buy ratio (for speed)
-- **Picks token with highest 5m momentum** when criteria met
+- **Volume ratio: ≥1.5x** (5min vol must be 1.5x of 1h avg - buying pressure)
+- **Picks token with highest score** (momentum + volume ratio)
 
 **Exit Criteria (Momentum-Based):**
 1. **Take Profit:** +5% (hard limit, take wins)
