@@ -1,0 +1,10 @@
+{
+  "checkpoints": [
+    {
+      "timestamp": "2026-02-12T19:15:00.000Z",
+      "balance_sol": 0.282034548,
+      "note": "Baseline after last hour of trading (+45% position P&L)"
+    }
+  ],
+  "last_check": "2026-02-12T19:15:00.000Z"
+}
