@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * refreshTrending.mjs - SWING TRADING MODE
- * Fetches established trending memes from DexScreener
- * Focus: 6-48h coins with strong volume + sustained momentum
+ * refreshTrending.mjs - SCALPING OPTIMIZED MODE
+ * Fetches active micro-scalp candidates from DexScreener
+ * Focus: 0.5-6h coins with high liquidity + live volume + tight spreads
  */
 
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ const STABLECOINS = new Set([
 ]);
 
 async function fetchHotTrendingMemes() {
-  console.log('📊 Fetching RISKIER TIER targets (early snipes) from DexScreener...');
+  console.log('📊 Fetching SCALPING OPTIMIZED targets from DexScreener...');
   
   try {
     const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
@@ -73,21 +73,21 @@ async function fetchHotTrendingMemes() {
         const pairAge = p?.pairCreatedAt ? now - p.pairCreatedAt : 999999999;
         const ageHours = pairAge / (1000 * 60 * 60);
         
-        // RISKIER TIER FILTERS (DexScreener pro parameters)
+        // SCALPING OPTIMIZED FILTERS (Quality over quantity)
         
-        // 1. Market Cap: $50K - $10M (allows smaller caps)
+        // 1. Market Cap: $50K - $10M (wider range, still focused)
         if (fdv < 50000 || fdv > 10000000) { debugCounts.mcFail++; continue; }
         
-        // 2. Liquidity: $8.5K+ (Riskier tier minimum)
-        if (liquidityUsd < 8500) { debugCounts.liqFail++; continue; }
+        // 2. Liquidity: $15K+ (better depth for quick in/out)
+        if (liquidityUsd < 15000) { debugCounts.liqFail++; continue; }
         
-        // 3. Pair Age: 20min - 2 years (catch early launches)
-        if (ageHours < 0.33 || ageHours > 17520) { debugCounts.ageFail++; continue; }
+        // 3. Pair Age: 30min - 12h (active window, not brand new)
+        if (ageHours < 0.5 || ageHours > 12) { debugCounts.ageFail++; continue; }
         
-        // 4. 1h volume: $10K+ minimum (immediate activity)
-        if (volumeH1 < 10000) { debugCounts.vol1hFail++; continue; }
+        // 4. 1h volume: $20K+ minimum (real action)
+        if (volumeH1 < 20000) { debugCounts.vol1hFail++; continue; }
         
-        // 5. 5min volume: $1K+ minimum (catching momentum early)
+        // 5. 5min volume: $1K+ minimum (active trading)
         if (volumeM5 < 1000) { debugCounts.vol5mFail++; continue; }
         
         // 6. No momentum filter here - entry monitor will check this
@@ -182,8 +182,8 @@ async function fetchHotTrendingMemes() {
     
     const output = {
       updatedAt: new Date().toISOString(),
-      source: 'DexScreener Riskier Tier (Early Snipes)',
-      strategy: 'MC: $50K-$10M | Liq: $8.5K+ | Age: 0.5h-2yr | Vol1h: $20K+ | Vol5m: $3K+ | Entry monitor checks momentum',
+      source: 'DexScreener Scalping Optimized',
+      strategy: 'MC: $50K-$10M | Liq: $15K+ | Age: 0.5h-12h | Vol1h: $20K+ | Vol5m: $1K+ | Scalping optimized',
       trending: final,
     };
     
