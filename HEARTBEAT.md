@@ -9,7 +9,7 @@
 - Stop Loss: **-3%** (hard limit)
 - Slippage: **10%** (volatile tokens)
 - Price polling: **3 seconds** (fast reaction ⚡)
-- List refresh: **5 minutes** (catch new momentum)
+- List refresh: **1 minute** (catch new momentum fast)
 - ONE coin at a time (focused capital)
 
 **Entry Criteria (RISKIER - Early Snipes - Real-Time Focus):**
@@ -38,7 +38,7 @@
 
 # Auto-Trading Bot - ACTIVE 2026-02-11 21:21 (MONITORED MODE)
 ## Automated Entry + Trade Execution (STRICT CRITERIA)
-1. Read trending_tokens_feb9.json (refreshes every 5min)
+1. Read trending_tokens_feb9.json (refreshes every 1min)
 2. Analyze each token's chart with real-time 1m momentum tracking
 3. **ONLY enter when ALL criteria pass** (removed 1h lagging indicator):
    - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying tops)

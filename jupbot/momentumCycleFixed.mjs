@@ -193,7 +193,7 @@ async function main() {
   const tpPct = 5;
   const slPct = 3;
   const pollMs = 3000;
-  const TRENDING_REFRESH_MS = 300000;
+  const TRENDING_REFRESH_MS = 60000; // 1 minute (catch new tokens fast)
   
   const secret = JSON.parse(fs.readFileSync(walletPath, 'utf8'));
   const kp = Keypair.fromSecretKey(Uint8Array.from(secret));
