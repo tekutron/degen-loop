@@ -36,21 +36,27 @@
 
 **Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
 
-# Auto-Trading Bot - ACTIVE 2026-02-11 21:21 (MONITORED MODE)
-## Automated Entry + Trade Execution (STRICT CRITERIA)
-1. Read trending_tokens_feb9.json (refreshes every 1min)
-2. Analyze each token's chart with real-time 1m momentum tracking
-3. **ONLY enter when ALL criteria pass** (removed 1h lagging indicator):
-   - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying tops)
-   - **5min: ≥+2%** (positive short-term momentum)
-   - **Volume: ≥1.5x** (5min vol vs 1h avg - buying pressure)
-   - **Buy ratio: ≥55%** (healthy demand)
-   - **NO 1h filter** - focuses on real-time momentum only
-4. Bot auto-buys when token passes ALL gates
-5. Exits on: TP (+5%), SL (-3%), momentum fade (<5% 1h), volume drop (>30%), stall (2min)
-6. After exit, resumes scanning for next qualified token
-7. **Strategy:** Catch tokens pumping NOW on short timeframes
-8. **ACTIVELY MONITORED** - Check trades every heartbeat, alert on entry/exit
+# Auto-Trading Bot - CANDLE PATTERN MODE (2026-02-11 22:03)
+## Candle Breakout Strategy (Pattern-Based Trading)
+1. Builds own 5-min candles by tracking price every 30 seconds
+2. Analyzes candle patterns for breakout signals
+3. **Entry Criteria (ALL must pass):**
+   - **Green Candle:** 5min change > 0 (buyers in control)
+   - **Strong Body:** Candle body ≥2% (not doji/weak move)
+   - **Breakout:** Price breaks above last 5 candles' high
+   - **Volume Spike:** 5min volume ≥2x average (confirmation)
+   - **Buy Ratio:** ≥55% buys (healthy demand)
+   - **Uptrend:** Last 3 candles showing higher lows
+4. Bot auto-buys when breakout pattern detected
+5. **Exit Criteria:**
+   - TP: +5% (take profit)
+   - SL: -3% (stop loss)
+   - Bearish Reversal: 5min turns red <-2% (reversal candle)
+   - Volume Drop: 1h volume <50% of entry (momentum dying)
+   - Price Stall: No movement for 2 minutes
+6. After exit, resumes scanning for next breakout
+7. **Strategy:** Catch actual breakouts with volume confirmation, not lagging momentum %
+8. **Scans every 30s** to build candle data in real-time
 
 # Trading Bot Monitor - ACTIVE 2026-02-11 21:21
 ## Monitor Active Trades (every heartbeat)
