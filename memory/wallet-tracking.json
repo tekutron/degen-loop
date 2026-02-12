@@ -4,7 +4,14 @@
       "timestamp": "2026-02-12T19:15:00.000Z",
       "balance_sol": 0.282034548,
       "note": "Baseline after last hour of trading (+45% position P&L)"
+    },
+    {
+      "timestamp": "2026-02-12T19:20:30.000Z",
+      "balance_sol": 0.282034548,
+      "note": "Session end - stopped trading",
+      "change_sol": 0.0,
+      "change_pct": 0.0
     }
   ],
-  "last_check": "2026-02-12T19:15:00.000Z"
+  "last_check": "2026-02-12T19:20:30.000Z"
 }

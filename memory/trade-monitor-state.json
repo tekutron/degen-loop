@@ -1,14 +1,14 @@
 {
-  "lastCheck": "2026-02-12T18:11:20.000Z",
+  "lastCheck": "2026-02-12T18:58:30.000Z",
   "currentTrade": null,
   "lastExit": {
-    "symbol": "MooNutPeng",
-    "mint": "84hqMeGHxqegpvf4kGaRp38iVd145DSoEBwnmBTtpump",
-    "exitReason": "SL",
-    "exitTime": "2026-02-12T05:57:16.237Z",
-    "entryPrice": 0.0008314,
-    "exitPrice": 0.0007918,
-    "pnl": -4.76,
+    "symbol": "UNKNOWN",
+    "mint": "rGFtf6guxdwvDJJ34VqvYUnZ8ZJcPMEtoXBCdhJpump",
+    "exitReason": "TP",
+    "exitTime": "2026-02-12T18:58:14.728Z",
+    "entryPrice": 0.001139,
+    "exitPrice": 0.001239,
+    "pnl": 8.78,
     "alerted": true
   }
 }
