@@ -36,19 +36,20 @@
 
 **Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
 
-# Entry Monitor - ACTIVE 2026-02-11 20:20
-## Entry Signal Monitor (every 60s) - NOW WITH 1M GATE
+# Auto-Trading Bot - ACTIVE 2026-02-11 20:54
+## Automated Entry + Trade Execution (every 60s)
 1. Read trending_tokens_feb9.json
 2. Analyze each token's chart with real-time 1m momentum tracking
 3. Evaluate entry signal based on ALL criteria:
-   - **1min: ≥+1%** (pumping RIGHT NOW - NEW!)
+   - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying tops!)
    - 5min: ≥+2% (positive short-term momentum)
    - 1h: ≥+10% (strong trend)
    - Volume: 5min vol ≥1.5x the 1h average (buying pressure)
    - Buy/Sell: ≥55% buys (healthy demand)
-4. Alert when GOOD or MODERATE entry detected
-5. Save alerts to memory/entry-alerts.json
-6. 1m gate prevents buying tops of 5m candles
+4. When GOOD signal detected: **Auto-start momentum bot** to trade
+5. Bot manages position (monitors momentum fade, TP, SL)
+6. After exit, resume monitoring for next opportunity
+7. **Fully automated** - no manual intervention needed
 
 # Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)
