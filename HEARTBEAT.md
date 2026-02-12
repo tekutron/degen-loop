@@ -1,29 +1,30 @@
 # HEARTBEAT.md
 
-## Trading Workflow (Momentum Cycling - Riskier Tier - Updated 2026-02-11 15:20)
-**Strategy:** Early snipes on fresh launches, ride momentum UP, exit when it fades
+## Trading Workflow (Scalping Optimized - Updated 2026-02-12 10:33)
+**Strategy:** Micro-scalp active tokens with tight TP/SL, focus on liquidity + volume
 
 **Configuration:**
 - Position size: **0.05 SOL** (~10-12% capital)
-- Take Profit: **+5%** (hard limit)
-- Stop Loss: **-3%** (hard limit)
+- Take Profit: **+5%** (hard limit - quick wins)
+- Stop Loss: **-3%** (hard limit - cut losses fast)
 - Slippage: **10%** (volatile tokens)
 - Price polling: **3 seconds** (fast reaction ⚡)
 - List refresh: **1 minute** (catch new momentum fast)
 - ONE coin at a time (focused capital)
 
-**Entry Criteria (RISKIER - Early Snipes - Real-Time Focus):**
-- Market Cap: $50K - $10M (allows smaller caps)
-- Liquidity: $8.5K+ (matches DexScreener "Riskier")
-- Age: 20min - 2 years (catch early launches)
-- 1h Volume: $10K+ (immediate activity)
-- 5min Volume: $1K+ (catching momentum early)
+**Token Selection (Scalping Optimized):**
+- Market Cap: $50K - $10M (quality range)
+- **Liquidity: $15K+** (better depth for quick in/out)
+- **Age: 30min - 12h** (active window, not brand new)
+- **1h Volume: $20K+** (real action happening)
+- 5min Volume: $1K+ (live trading confirmation)
+- NO stablecoins (direct SOL only)
+
+**Entry Criteria (Real-Time Momentum):**
 - **1m momentum: ≥+1%** (pumping RIGHT NOW - prevents buying tops)
 - **5m momentum: ≥+2%** (positive short-term)
 - **Volume ratio: ≥1.5x** (5min vs 1h avg - buying pressure)
 - **Buy ratio: ≥55%** (healthy demand)
-- NO stablecoins (direct SOL only)
-- **NO 1h momentum filter** (removed lagging indicator)
 - **Picks token with highest 1m+5m score** when criteria met
 
 **Exit Criteria (Momentum-Based):**
