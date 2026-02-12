@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * momentumCycleFixed.mjs - Fixed momentum trader with proper entry criteria
- * Uses 1m/5m/1h momentum gates + volume + buy ratio
+ * momentumCycleFixed.mjs - FAST SCALPING MODE
+ * Simplified entry: 5m momentum + volume only (no 1m gate, no ratio checks)
+ * Focus: Speed > Confirmation (micro-scalp +5%/-3%)
  */
 
 import fs from 'node:fs';
@@ -15,11 +16,9 @@ const TRADES_FILE = path.join(HERE, 'momentum_trades.json');
 const TRENDING_FILE = path.join(HERE, 'trending_tokens_feb9.json');
 const WSOL = 'So11111111111111111111111111111111111111112';
 
-// Entry criteria (strict gates - NO 1h filter)
-const MIN_1M_CHANGE = 1;
-const MIN_5MIN_CHANGE = 2;
-const MIN_VOL_RATIO = 1.5;
-const MIN_BUY_RATIO = 55;
+// Entry criteria (SIMPLIFIED GATES - Fast scalping)
+const MIN_5MIN_CHANGE = 2;  // 5m momentum minimum
+const MIN_5MIN_VOLUME = 1000; // $1K 5min volume minimum
 
 // Exit criteria
 const MIN_HOLD_MOMENTUM = 5;
@@ -156,13 +155,12 @@ async function analyzeToken(mint, symbol) {
 function evaluateEntry(data) {
   if (!data) return { pass: false, reason: 'No data' };
   
-  const { m1, m5, h1, volRatio, buyRatio } = data;
+  const { m1, m5, h1, vol5m, volRatio, buyRatio } = data;
   
+  // SIMPLIFIED GATES: Just 5m momentum + 5m volume
   const checks = {
-    m1: m1 >= MIN_1M_CHANGE,
     m5: m5 >= MIN_5MIN_CHANGE,
-    vol: volRatio >= MIN_VOL_RATIO,
-    buys: buyRatio >= MIN_BUY_RATIO
+    vol5m: vol5m >= MIN_5MIN_VOLUME
   };
   
   const passedAll = Object.values(checks).every(v => v);
@@ -170,14 +168,14 @@ function evaluateEntry(data) {
   if (passedAll) {
     return {
       pass: true,
-      score: m1 * 3 + m5 * 2 + volRatio * 10,
-      reason: `✅ 1m:+${m1.toFixed(1)}% 5m:+${m5.toFixed(1)}% (1h:${h1.toFixed(1)}%) Vol:${volRatio.toFixed(1)}x Buys:${buyRatio.toFixed(0)}%`
+      score: m5 * 10 + (vol5m / 100), // Prioritize momentum
+      reason: `✅ FAST ENTRY: 5m:+${m5.toFixed(1)}% (1h:${h1.toFixed(1)}%) Vol5m:$${(vol5m/1000).toFixed(1)}K`
     };
   }
   
   return {
     pass: false,
-    reason: `❌ Failed: 1m:${m1.toFixed(1)}% 5m:${m5.toFixed(1)}% Vol:${volRatio.toFixed(1)}x Buys:${buyRatio.toFixed(0)}%`
+    reason: `⏸️  Waiting: 5m:${m5.toFixed(1)}% Vol5m:$${(vol5m/1000).toFixed(1)}K (need 5m≥+${MIN_5MIN_CHANGE}% + Vol≥$${MIN_5MIN_VOLUME/1000}K)`
   };
 }
 
@@ -203,8 +201,8 @@ async function main() {
   writeState({
     running: true,
     pid: process.pid,
-    strategy: 'momentum-fixed',
-    config: { sizeSol, tpPct, slPct, slippageBps, pollMs, MIN_1M_CHANGE, MIN_5MIN_CHANGE, MIN_VOL_RATIO, MIN_BUY_RATIO }
+    strategy: 'fast-scalping',
+    config: { sizeSol, tpPct, slPct, slippageBps, pollMs, MIN_5MIN_CHANGE, MIN_5MIN_VOLUME }
   });
   
   let nextTrendingAt = 0;
