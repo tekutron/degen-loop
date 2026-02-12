@@ -16,9 +16,10 @@ const TRADES_FILE = path.join(HERE, 'momentum_trades.json');
 const TRENDING_FILE = path.join(HERE, 'trending_tokens_feb9.json');
 const WSOL = 'So11111111111111111111111111111111111111112';
 
-// Entry criteria (SIMPLIFIED GATES - Fast scalping)
+// Entry criteria (OPTIMIZED - Fast scalping with confirmation)
 const MIN_5MIN_CHANGE = 2;  // 5m momentum minimum
 const MIN_5MIN_VOLUME = 1000; // $1K 5min volume minimum
+const MIN_VOL_RATIO = 1.5; // Volume ratio: 5min must be 1.5x of 1h avg
 
 // Exit criteria
 const MIN_HOLD_MOMENTUM = 5;
@@ -157,10 +158,11 @@ function evaluateEntry(data) {
   
   const { m1, m5, h1, vol5m, volRatio, buyRatio } = data;
   
-  // SIMPLIFIED GATES: Just 5m momentum + 5m volume
+  // OPTIMIZED GATES: 5m momentum + 5m volume + volume ratio
   const checks = {
     m5: m5 >= MIN_5MIN_CHANGE,
-    vol5m: vol5m >= MIN_5MIN_VOLUME
+    vol5m: vol5m >= MIN_5MIN_VOLUME,
+    volRatio: volRatio >= MIN_VOL_RATIO
   };
   
   const passedAll = Object.values(checks).every(v => v);
@@ -168,14 +170,14 @@ function evaluateEntry(data) {
   if (passedAll) {
     return {
       pass: true,
-      score: m5 * 10 + (vol5m / 100), // Prioritize momentum
-      reason: `✅ FAST ENTRY: 5m:+${m5.toFixed(1)}% (1h:${h1.toFixed(1)}%) Vol5m:$${(vol5m/1000).toFixed(1)}K`
+      score: m5 * 10 + (vol5m / 100) + (volRatio * 5), // Prioritize momentum + volume ratio
+      reason: `✅ ENTRY: 5m:+${m5.toFixed(1)}% Vol5m:$${(vol5m/1000).toFixed(1)}K VolRatio:${volRatio.toFixed(1)}x (1h:${h1.toFixed(1)}%)`
     };
   }
   
   return {
     pass: false,
-    reason: `⏸️  Waiting: 5m:${m5.toFixed(1)}% Vol5m:$${(vol5m/1000).toFixed(1)}K (need 5m≥+${MIN_5MIN_CHANGE}% + Vol≥$${MIN_5MIN_VOLUME/1000}K)`
+    reason: `⏸️  Waiting: 5m:${m5.toFixed(1)}% Vol5m:$${(vol5m/1000).toFixed(1)}K VolRatio:${volRatio.toFixed(1)}x (need 5m≥+${MIN_5MIN_CHANGE}% + Vol≥$${MIN_5MIN_VOLUME/1000}K + Ratio≥${MIN_VOL_RATIO}x)`
   };
 }
 
@@ -201,8 +203,8 @@ async function main() {
   writeState({
     running: true,
     pid: process.pid,
-    strategy: 'fast-scalping',
-    config: { sizeSol, tpPct, slPct, slippageBps, pollMs, MIN_5MIN_CHANGE, MIN_5MIN_VOLUME }
+    strategy: 'fast-scalping-optimized',
+    config: { sizeSol, tpPct, slPct, slippageBps, pollMs, MIN_5MIN_CHANGE, MIN_5MIN_VOLUME, MIN_VOL_RATIO }
   });
   
   let nextTrendingAt = 0;

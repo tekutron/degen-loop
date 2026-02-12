@@ -36,7 +36,7 @@ async function fetchHotTrendingMemes() {
     
     const candidates = [];
     const now = Date.now();
-    let debugCounts = { total: 0, noSolPairs: 0, stablecoin: 0, mcFail: 0, liqFail: 0, ageFail: 0, vol1hFail: 0, vol5mFail: 0, txnFail: 0, passed: 0 };
+    let debugCounts = { total: 0, noSolPairs: 0, stablecoin: 0, mcFail: 0, liqFail: 0, ageFail: 0, vol1hFail: 0, vol5mFail: 0, megaPumpFail: 0, txnFail: 0, passed: 0 };
     
     for (const boost of solTokens.slice(0, 300)) {
       debugCounts.total++;
@@ -90,7 +90,8 @@ async function fetchHotTrendingMemes() {
         // 5. 5min volume: $1K+ minimum (active trading)
         if (volumeM5 < 1000) { debugCounts.vol5mFail++; continue; }
         
-        // 6. No momentum filter here - entry monitor will check this
+        // 6. Reject mega-pumps (>500% 1h = trap, already late)
+        if (h1 > 500) { debugCounts.megaPumpFail++; continue; }
         
         // 7. Price volatility: Track for scoring
         const volatility24h = Math.abs(priceChange24h);
@@ -177,6 +178,7 @@ async function fetchHotTrendingMemes() {
     console.log(`   Age fail: ${debugCounts.ageFail}`);
     console.log(`   1h volume fail: ${debugCounts.vol1hFail}`);
     console.log(`   5min volume fail: ${debugCounts.vol5mFail}`);
+    console.log(`   Mega-pump fail (>500% 1h): ${debugCounts.megaPumpFail}`);
     console.log(`   Transactions fail: ${debugCounts.txnFail}`);
     console.log(`   ✅ Passed all filters: ${debugCounts.passed}`);
     
