@@ -12,7 +12,7 @@
 - List refresh: **5 minutes** (catch new momentum)
 - ONE coin at a time (focused capital)
 
-**Entry Criteria (RISKIER - Early Snipes with 1m Gate):**
+**Entry Criteria (RISKIER - Early Snipes - Real-Time Focus):**
 - Market Cap: $50K - $10M (allows smaller caps)
 - Liquidity: $8.5K+ (matches DexScreener "Riskier")
 - Age: 20min - 2 years (catch early launches)
@@ -20,11 +20,11 @@
 - 5min Volume: $1K+ (catching momentum early)
 - **1m momentum: ≥+1%** (pumping RIGHT NOW - prevents buying tops)
 - **5m momentum: ≥+2%** (positive short-term)
-- **1h momentum: ≥+10%** (strong trend)
 - **Volume ratio: ≥1.5x** (5min vs 1h avg - buying pressure)
 - **Buy ratio: ≥55%** (healthy demand)
 - NO stablecoins (direct SOL only)
-- **Picks hottest coin from list** (highest combined momentum)
+- **NO 1h momentum filter** (removed lagging indicator)
+- **Picks token with highest 1m+5m score** when criteria met
 
 **Exit Criteria (Momentum-Based):**
 1. **Take Profit:** +5% (hard limit, take wins)
@@ -36,20 +36,20 @@
 
 **Risk Level:** 🔴 HIGH - Early launches, smaller caps, higher volatility
 
-# Auto-Trading Bot - ACTIVE 2026-02-11 21:10 (FIXED)
+# Auto-Trading Bot - ACTIVE 2026-02-11 21:15 (NO 1H FILTER)
 ## Automated Entry + Trade Execution (STRICT CRITERIA)
 1. Read trending_tokens_feb9.json (refreshes every 5min)
 2. Analyze each token's chart with real-time 1m momentum tracking
-3. **ONLY enter when ALL criteria pass** (no "highest 1h" selection):
-   - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying falling knives!)
+3. **ONLY enter when ALL criteria pass** (removed 1h lagging indicator):
+   - **1min: ≥+1%** (pumping RIGHT NOW - prevents buying tops)
    - **5min: ≥+2%** (positive short-term momentum)
-   - **1h: ≥+10%** (strong trend, but NOT the main filter)
    - **Volume: ≥1.5x** (5min vol vs 1h avg - buying pressure)
    - **Buy ratio: ≥55%** (healthy demand)
+   - **NO 1h filter** - focuses on real-time momentum only
 4. Bot auto-buys when token passes ALL gates
-5. Exits on: TP (+5%), SL (-3%), momentum fade (<5%), volume drop (>30%), stall (2min)
+5. Exits on: TP (+5%), SL (-3%), momentum fade (<5% 1h), volume drop (>30%), stall (2min)
 6. After exit, resumes scanning for next qualified token
-7. **Fixed:** No longer buys tokens with high 1h but dumping on 1m/5m
+7. **Strategy:** Catch tokens pumping NOW on short timeframes
 
 # Trading Bot Monitor - DISABLED 2026-02-09
 # ## Trading Bot Monitor (every check)

@@ -15,10 +15,9 @@ const TRADES_FILE = path.join(HERE, 'momentum_trades.json');
 const TRENDING_FILE = path.join(HERE, 'trending_tokens_feb9.json');
 const WSOL = 'So11111111111111111111111111111111111111112';
 
-// Entry criteria (strict gates)
+// Entry criteria (strict gates - NO 1h filter)
 const MIN_1M_CHANGE = 1;
 const MIN_5MIN_CHANGE = 2;
-const MIN_1H_CHANGE = 10;
 const MIN_VOL_RATIO = 1.5;
 const MIN_BUY_RATIO = 55;
 
@@ -162,7 +161,6 @@ function evaluateEntry(data) {
   const checks = {
     m1: m1 >= MIN_1M_CHANGE,
     m5: m5 >= MIN_5MIN_CHANGE,
-    h1: h1 >= MIN_1H_CHANGE,
     vol: volRatio >= MIN_VOL_RATIO,
     buys: buyRatio >= MIN_BUY_RATIO
   };
@@ -172,14 +170,14 @@ function evaluateEntry(data) {
   if (passedAll) {
     return {
       pass: true,
-      score: m1 * 2 + m5 + h1 + volRatio * 10,
-      reason: `✅ 1m:+${m1.toFixed(1)}% 5m:+${m5.toFixed(1)}% 1h:+${h1.toFixed(1)}% Vol:${volRatio.toFixed(1)}x Buys:${buyRatio.toFixed(0)}%`
+      score: m1 * 3 + m5 * 2 + volRatio * 10,
+      reason: `✅ 1m:+${m1.toFixed(1)}% 5m:+${m5.toFixed(1)}% (1h:${h1.toFixed(1)}%) Vol:${volRatio.toFixed(1)}x Buys:${buyRatio.toFixed(0)}%`
     };
   }
   
   return {
     pass: false,
-    reason: `❌ Failed: 1m:${m1.toFixed(1)}% 5m:${m5.toFixed(1)}% 1h:${h1.toFixed(1)}% Vol:${volRatio.toFixed(1)}x`
+    reason: `❌ Failed: 1m:${m1.toFixed(1)}% 5m:${m5.toFixed(1)}% Vol:${volRatio.toFixed(1)}x Buys:${buyRatio.toFixed(0)}%`
   };
 }
 
@@ -206,7 +204,7 @@ async function main() {
     running: true,
     pid: process.pid,
     strategy: 'momentum-fixed',
-    config: { sizeSol, tpPct, slPct, slippageBps, pollMs, MIN_1M_CHANGE, MIN_5MIN_CHANGE, MIN_1H_CHANGE, MIN_VOL_RATIO }
+    config: { sizeSol, tpPct, slPct, slippageBps, pollMs, MIN_1M_CHANGE, MIN_5MIN_CHANGE, MIN_VOL_RATIO, MIN_BUY_RATIO }
   });
   
   let nextTrendingAt = 0;
@@ -258,7 +256,7 @@ async function main() {
     }
     
     console.log(`\n🎯 Selected: ${bestToken.symbol} (score: ${bestScore.toFixed(1)})`);
-    console.log(`   1m: +${bestToken.analysis.m1.toFixed(1)}% | 5m: +${bestToken.analysis.m5.toFixed(1)}% | 1h: +${bestToken.analysis.h1.toFixed(1)}%`);
+    console.log(`   1m: +${bestToken.analysis.m1.toFixed(1)}% | 5m: +${bestToken.analysis.m5.toFixed(1)}% | Vol: ${bestToken.analysis.volRatio.toFixed(1)}x | (1h: ${bestToken.analysis.h1.toFixed(1)}% for reference)`);
     
     writeState({
       stage: 'BUY',
