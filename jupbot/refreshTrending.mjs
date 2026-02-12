@@ -21,21 +21,25 @@ const STABLECOINS = new Set([
 ]);
 
 async function fetchHotTrendingMemes() {
-  console.log('📊 Fetching MICRO SCALPING targets (5min activity focus) from DexScreener...');
+  console.log('📊 Fetching RISKIER TIER targets (early snipes) from DexScreener...');
   
   try {
     const boostsRes = await fetch(BOOSTS_URL, { cache: 'no-store' });
     if (!boostsRes.ok) throw new Error('DexScreener boosts API failed');
     
     const boosts = await boostsRes.json();
+    console.log(`   Found ${boosts.length} total boosts from API`);
     const solTokens = boosts.filter((b) => 
       (b?.chainId ?? '').toLowerCase() === 'solana' && b?.tokenAddress
     );
+    console.log(`   ${solTokens.length} Solana tokens after chain filter`);
     
     const candidates = [];
     const now = Date.now();
+    let debugCounts = { total: 0, noSolPairs: 0, stablecoin: 0, mcFail: 0, liqFail: 0, ageFail: 0, vol1hFail: 0, vol5mFail: 0, txnFail: 0, passed: 0 };
     
     for (const boost of solTokens.slice(0, 300)) {
+      debugCounts.total++;
       try {
         const res = await fetch(TOKEN_URL(boost.tokenAddress), { cache: 'no-store' });
         if (!res.ok) continue;
@@ -44,13 +48,13 @@ async function fetchHotTrendingMemes() {
         const pairs = Array.isArray(json?.pairs) ? json.pairs : [];
         
         const solPairs = pairs.filter((p) => (p?.chainId ?? '').toLowerCase() === 'solana');
-        if (solPairs.length === 0) continue;
+        if (solPairs.length === 0) { debugCounts.noSolPairs++; continue; }
         
         solPairs.sort((a, b) => Number(b?.volume?.h24 ?? 0) - Number(a?.volume?.h24 ?? 0));
         const p = solPairs[0];
         
         const mint = p?.baseToken?.address;
-        if (!mint || STABLECOINS.has(mint)) continue;
+        if (!mint || STABLECOINS.has(mint)) { debugCounts.stablecoin++; continue; }
         
         const volumeH1 = Number(p?.volume?.h1 ?? 0);
         const volumeH24 = Number(p?.volume?.h24 ?? 0);
@@ -69,36 +73,35 @@ async function fetchHotTrendingMemes() {
         const pairAge = p?.pairCreatedAt ? now - p.pairCreatedAt : 999999999;
         const ageHours = pairAge / (1000 * 60 * 60);
         
-        // MICRO SCALPING FILTERS (High volume + liquidity for quick flips)
+        // RISKIER TIER FILTERS (DexScreener pro parameters)
         
-        // 1. Market Cap: $100K - $20M (focus on liquid coins)
-        if (fdv < 100000 || fdv > 20000000) continue;
+        // 1. Market Cap: $50K - $10M (allows smaller caps)
+        if (fdv < 50000 || fdv > 10000000) { debugCounts.mcFail++; continue; }
         
-        // 2. Liquidity: $15K+ (loosened for more candidates)
-        if (liquidityUsd < 15000) continue;
+        // 2. Liquidity: $8.5K+ (Riskier tier minimum)
+        if (liquidityUsd < 8500) { debugCounts.liqFail++; continue; }
         
-        // 3. Pair Age: 0.5h - 120h (allow established + fresh)
-        if (ageHours < 0.5 || ageHours > 120) continue;
+        // 3. Pair Age: 0.5h - 2 years (allow any age)
+        if (ageHours < 0.5 || ageHours > 17520) { debugCounts.ageFail++; continue; }
         
-        // 4. 24h volume: $100K+ (loosened for more candidates)
-        if (volumeH24 < 100000) continue;
+        // 4. 1h volume: $10K+ minimum (immediate activity)
+        if (volumeH1 < 10000) { debugCounts.vol1hFail++; continue; }
         
-        // 5. 5min volume: $5K+ minimum (MUST be active RIGHT NOW)
-        if (volumeM5 < 5000) continue;
+        // 5. 5min volume: $1K+ minimum (catching momentum early)
+        if (volumeM5 < 1000) { debugCounts.vol5mFail++; continue; }
         
-        // 6. 1h volume: $30K+ minimum (sustained activity)
-        if (volumeH1 < 30000) continue;
+        // 6. No momentum filter here - entry monitor will check this
         
-        // 7. 5min momentum: ANY positive movement (even +0.1%)
-        if (priceChangeM5 < 0.1) continue; // Must be moving up in 5min (or flat)
-        
-        // 8. Price volatility: Track but allow wide range
+        // 7. Price volatility: Track for scoring
         const volatility24h = Math.abs(priceChange24h);
         
-        // 9. Transactions: 100+ in 24h (real activity)
-        if (txns24h < 100) continue;
+        // 8. Transactions: 10+ in 24h (minimal activity check)
+        if (txns24h < 10) { debugCounts.txnFail++; continue; }
         
-        // 10. 5min transactions: Track for spread analysis
+        // Calculate volume ratio (5min vs 1h average)
+        const volumeRatio = volumeH1 > 0 ? (volumeM5 / (volumeH1 / 12)) : 0;
+        
+        debugCounts.passed++;
         
         // Calculate micro scalp score (5min activity + liquidity)
         const volumeM5Score = Math.min(volumeM5 / 1000, 50); // 5min volume (cap 50) - PRIORITY
@@ -110,42 +113,45 @@ async function fetchHotTrendingMemes() {
         // Tier system: Prime scalp vs Active scalp
         let tier = '1'; // Active scalp
         
-        // Tier 2: Prime Micro Scalp (perfect conditions)
+        // Tier 2: Prime target (better conditions)
         if (
           fdv >= 500000 && fdv <= 5000000 && // Sweet spot MC ($500K-$5M)
-          liquidityUsd > 50000 && // High liquidity ($50K+)
-          volumeM5 > 20000 && // Very active 5min ($20K+)
-          volumeH1 > 100000 && // Strong 1h volume ($100K+)
-          priceChangeM5 >= 1 && priceChangeM5 <= 10 && // Good 5min momentum (1-10%)
-          txns5m > 50 // Tight spread (50+ txns in 5min)
+          liquidityUsd > 20000 && // Better liquidity ($20K+)
+          volumeM5 > 10000 && // Very active 5min ($10K+)
+          volumeH1 > 50000 && // Strong 1h volume ($50K+)
+          txns5m > 20 // Good activity (20+ txns in 5min)
         ) {
           tier = '2';
         }
         
-        candidates.push({
-          tier,
-          mint,
-          symbol: p?.baseToken?.symbol || '???',
-          name: p?.baseToken?.name || 'Unknown',
-          priceUsd: Number(p.priceUsd ?? 0),
-          dexUrl: p?.url || `https://dexscreener.com/solana/${mint}`,
-          volumeH1,
-          volumeH24,
-          volumeM5,
-          liquidityUsd,
-          fdv,
-          priceChange1h,
-          priceChange6h,
-          priceChange24h,
-          priceChangeM5,
-          txns5m,
-          txns24h,
-          buys24h,
-          ageHours: Math.round(ageHours * 10) / 10,
-          volumeRatio: Math.round(volumeRatio * 1000) / 10, // Percentage
-          volatility24h: Math.round(volatility24h * 10) / 10,
-          scalpScore: Math.round(scalpScore),
-        });
+        try {
+          candidates.push({
+            tier,
+            mint,
+            symbol: p?.baseToken?.symbol || '???',
+            name: p?.baseToken?.name || 'Unknown',
+            priceUsd: Number(p.priceUsd ?? 0),
+            dexUrl: p?.url || `https://dexscreener.com/solana/${mint}`,
+            volumeH1,
+            volumeH24,
+            volumeM5,
+            liquidityUsd,
+            fdv,
+            priceChange1h,
+            priceChange6h,
+            priceChange24h,
+            priceChangeM5,
+            txns5m,
+            txns24h,
+            buys24h,
+            ageHours: Math.round(ageHours * 10) / 10,
+            volumeRatio: Math.round(volumeRatio * 1000) / 10, // Percentage
+            volatility24h: Math.round(volatility24h * 10) / 10,
+            scalpScore: Math.round(scalpScore),
+          });
+        } catch (pushErr) {
+          console.log(`   Error pushing candidate ${p?.baseToken?.symbol}: ${pushErr.message}`);
+        }
       } catch (err) {
         // Skip invalid tokens
       }
@@ -161,12 +167,23 @@ async function fetchHotTrendingMemes() {
     // Target: 5 Elite + 10 Good = 15 tokens (focused selection)
     const final = [...tier2.slice(0, 5), ...tier1.slice(0, 10)];
     
-    console.log(`✅ Found ${final.length} tokens (${tier2.length} Prime Micro Scalps, ${tier1.length} Active Scalps)`);
+    console.log(`✅ Found ${final.length} tokens (${tier2.length} Prime Targets, ${tier1.length} Standard Targets)`);
+    console.log(`\n📊 Filter Debug:`);
+    console.log(`   Total checked: ${debugCounts.total}`);
+    console.log(`   No Solana pairs: ${debugCounts.noSolPairs}`);
+    console.log(`   Stablecoin: ${debugCounts.stablecoin}`);
+    console.log(`   Market cap fail: ${debugCounts.mcFail}`);
+    console.log(`   Liquidity fail: ${debugCounts.liqFail}`);
+    console.log(`   Age fail: ${debugCounts.ageFail}`);
+    console.log(`   1h volume fail: ${debugCounts.vol1hFail}`);
+    console.log(`   5min volume fail: ${debugCounts.vol5mFail}`);
+    console.log(`   Transactions fail: ${debugCounts.txnFail}`);
+    console.log(`   ✅ Passed all filters: ${debugCounts.passed}`);
     
     const output = {
       updatedAt: new Date().toISOString(),
-      source: 'DexScreener Micro Scalping (5min Activity)',
-      strategy: 'MC: $100K-$20M | Liq: $30K+ | Vol24h: $200K+ | Vol1h: $50K+ | Vol5m: $10K+ | 5min: +0.5%+ | High liquidity for quick 1-3% flips',
+      source: 'DexScreener Riskier Tier (Early Snipes)',
+      strategy: 'MC: $50K-$10M | Liq: $8.5K+ | Age: 0.5h-2yr | Vol1h: $20K+ | Vol5m: $3K+ | Entry monitor checks momentum',
       trending: final,
     };
     
