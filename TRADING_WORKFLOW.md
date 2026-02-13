@@ -6,6 +6,13 @@
 
 ## Quick Start
 
+### ⚠️ REMINDER: Enable Scheduled Refresh Before Starting
+**IMPORTANT:** Before starting the bot, set up auto-refresh (every 10 min):
+```bash
+# Add to crontab (run once):
+(crontab -l 2>/dev/null; echo "*/10 * * * * cd /home/j/.openclaw/workspace/jupbot && node refreshTrending.mjs >> refresh.log 2>&1") | crontab -
+```
+
 ### Start Trading Bot
 ```bash
 cd /home/j/.openclaw/workspace/jupbot
