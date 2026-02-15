@@ -46,6 +46,68 @@
 - Risk management: Hard TP/SL limits prevent emotional decisions (+5% TP, -3% SL)
 - Entry criteria evolved: green candle + strong body (≥2%) + breakout above last 5 candles + volume spike (≥2x avg)
 
+### Pump Sniper Development (Feb 2026)
+- **Phase 1:** Built direct pump.fun bonding curve integration
+  - Chose pump.fun > Jupiter (2-3x faster, ~300ms execution)
+  - Implemented PDA derivation, priority fees, skipPreflight
+  - Created RPC rotation system (4 endpoints, 40x better rate limit tolerance)
+- **Critical Failure - Live Test #1 (Feb 13):** 100% NO_TOKENS errors (60+ trades, 0% success)
+  - **Root cause:** Sending transactions but not waiting for confirmation
+  - **Pattern:** `sendTransaction()` returns signature immediately, but tokens arrive later
+  - **Mistake:** Assumed 2-second sleep = confirmation (it doesn't!)
+  - **Consequence:** Tried to sell before tokens arrived → NO_TOKENS → lost $25 in fees
+  - **Additional issue:** IncorrectProgramId on ATA creation (pump.fun uses non-standard token program)
+  - **Fix attempted:** Implemented `waitForConfirmation()` method (polls 30x at 1s intervals)
+  - **Result:** Still failed - unknown/undocumented token program requirements
+  - **Learning:** Blockchain operations are asynchronous - signatures ≠ confirmation!
+- **Rate Limit Crisis (Feb 13):** First live test hit 429 errors within seconds
+  - **Cause:** Polling every 100ms = 10 req/sec on single RPC
+  - **Symptoms:** Positions stuck for 110s+ (timeout logic broken by price fetch failures)
+  - **Solution:** Reduced polling to 1s + RPC rotation (4→3 endpoints)
+  - **Result:** 40x better rate limit capacity (from 1 to 40 req/sec theoretical)
+- **Strategic Pivot (Feb 13 Evening):** Abandoned pump.fun direct integration after 60+ failures
+  - **Decision:** Switch to Jupiter aggregator for reliability
+- **Bonding Curve Detection (Feb 14 Evening):** Implemented critical infrastructure (commit 319b1d6)
+  - **Feature:** Detects if token on bonding curve vs. graduated to DEX
+  - **Impact:** Prevents false "$0 liquidity" rejections for fresh launches
+  - **Optimization:** 20s age filter = 36 detected vs. 5s = 21 detected (optimal timing)
+- **Price Monitoring Implementation (Feb 14 Evening):** DexScreener integration (commit 6d887db)
+  - **Works:** Graduated tokens (Raydium pools)
+  - **Fails:** Bonding curve tokens (DexScreener returns null)
+  - **Live test:** 7 trades, all timed out due to null prices, -$2.66 loss
+  - **Next:** Test with graduated tokens OR implement bonding curve price deserialization
+- **Moralis Price API Integration (Feb 15 Afternoon):** Fixed Bitquery timeouts (commit 7d72dba)
+  - **Implementation:** 3-tier waterfall (Moralis → Bitquery → DexScreener)
+  - **Performance:** ~600ms response time, 100% uptime during test
+  - **Coverage:** Both bonding curve + graduated tokens
+  - **Test results:** USDC $0.9999, pump.fun token $0.00000251
+  - **Live test:** 5min, 2 trades, 1 TP hit at +16.11%, no price failures
+  - **Status:** Production ready, Bitquery relegated to fallback
+- **Filter Tuning & Live Testing (Feb 14):** Extensive testing with PumpPortal SDK
+  - **8 progressive iterations:** Age (30s→3s→20s), Liquidity ($1000→$100), Scores (10→1), RugCheck (blocking→optional)
+  - **Live Results:** 513 tokens detected, 0 executed (100% rejection rate)
+  - **Discoveries:**
+    - 3s age filter: Tokens don't have trading pairs or liquidity pools yet
+    - 20s age filter: Still mostly $0 liquidity, no improvement
+    - RugCheck API: 64% error rate on fresh tokens (too new to analyze)
+    - Weekend market: 100% garbage (no trading pairs: 158, $0 liquidity: 102, known ruggers: 30)
+  - **Implementations:**
+    - Made RugCheck optional (continue on API errors, only block danger-level)
+    - Added stop loss (-10%) to quick scalp strategy (TP: +25%, Hold: 45s)
+    - Lowered min balance (0.1→0.05 SOL) for testing
+    - Enabled social requirement (minimal impact, good signal)
+  - **Key Insight:** Market timing > filter aggressiveness. Need US weekday hours or pivot to established tokens
+  - **Status:** Configuration optimized and saved to GitHub (commit a185a4e)
+  - **Rationale:** 800ms that works > 300ms with 0% success rate
+  - **Lesson:** Don't get attached to clever solutions that don't work - pivot when data proves failure
+  - **New approach:** Jupiter SDK integration (proven, works with all tokens)
+  - **Current status:** Implementing Jupiter API authentication (new requirement)
+- **Key Insights:** 
+  - Fast ≠ good if infrastructure can't support it. Build reliability first, then optimize speed.
+  - Know when to pivot - after 60 failures, stop debugging and switch approaches
+  - Undocumented APIs are dangerous - pump.fun program lacks clear specs
+  - Use proven infrastructure in production - boring reliability > exciting speed
+
 ### Security & Best Practices (Feb 2026)
 - **API Key Exposure Incident (Feb 9-11):** Hardcoded Helius API key in `checkWallet.mjs` and committed to GitHub
   - **Impact:** Public exposure of API key, potential rate limit abuse
@@ -70,6 +132,8 @@
 2. **Reactive learning only** - Need proactive skill acquisition too
 3. **Hardcoding secrets** - Use environment variables, never commit keys
 4. **Using lagging indicators** - Real-time data > historical averages for fast-moving situations
+5. **Assuming async operations complete immediately** - Blockchain txs return signatures before confirmation; must explicitly wait for on-chain finality
+6. **Getting attached to clever solutions that don't work** - After clear failure pattern (60+ tries), pivot to boring/reliable approach instead of endlessly debugging
 
 ---
 
@@ -88,6 +152,22 @@
 - Exit on momentum fade, don't baghold
 - Look for candle breakout patterns with volume confirmation (not just % changes)
 - Entry: Green candle + strong body + breakout + volume spike + uptrend
+
+### When Position Sizing
+- **Account for fee overhead:** Small positions (0.01 SOL) make fees 15-20% of capital
+- **Minimum viable size:** 0.05 SOL positions make fees ~3-4% overhead (more sustainable)
+- **Fee components:** Priority (0.0005 SOL) + Network (~0.0002) + PumpPortal (~1%) + Slippage (up to 5%)
+- **Break-even math:** Need TP > (2 × fees + slippage) to be profitable
+- **At 0.01 SOL:** Need ~20% TP to break even | **At 0.05 SOL:** Need ~8% TP to break even
+
+### When Sniping Fresh Launches (pump.fun)
+- **Timing is critical:** 3s = no pools yet | 20s = still early but pools forming | 60s+ = established
+- **Market quality varies by time:** Weekends/late hours = 100% garbage | US weekday 9am-4pm EST = better quality
+- **RugCheck limitations:** API can't analyze brand-new tokens (400 errors) - make it optional, only block danger-level
+- **Liquidity is real:** $100 minimum catches tokens early but most have $0 initially
+- **Progressive filter tuning:** Start conservative, tune to aggressive based on rejection data
+- **Zero executions = pivot signal:** If 500+ tokens detected with 0 executions, market timing or strategy is wrong
+- **Quick scalp works best:** TP: 25%, SL: 10%, Hold: 45s (fast in/out, 2.5:1 risk/reward)
 
 ### When Handling Secrets
 - NEVER hardcode API keys, tokens, or credentials in source code
@@ -122,12 +202,39 @@
 4. **Progressive disclosure** - Show only what's needed when it's needed (context efficiency)
 5. **Meta-skills are force multipliers** - Skills about learning > skills about doing
 
-### Week of Feb 9-12 Key Learnings
+### Feb 15 Key Learnings (Live Testing)
+1. **Position size matters for fee overhead** - 0.01 SOL positions make fees ~15-20% overhead vs. 3-4% on 0.05 SOL
+2. **TP/SL logic works correctly** - First trade hit TP at exactly +16.11%, clean exit
+3. **Moralis price API is reliable** - 100% uptime, no timeouts, ~600ms response, works for bonding curve tokens
+4. **Weekend vs weekday quality confirmed** - 0.4% execution rate on Sunday evening (494 detected, 2 executed)
+5. **Small wins get eaten by fees** - +16% profit becomes -23% net after 2 trades due to fee accumulation
+6. **Need bigger positions or higher TP** - Either 5x position size OR 1.5x-2x TP target to overcome fees
+
+### Week of Feb 9-13 Key Learnings
 1. **Real-time indicators beat lagging ones** - 1h momentum tells you what already happened; 1m+5m tells you what's happening NOW
 2. **Security hygiene is non-negotiable** - Hardcoded API keys = security incident waiting to happen
 3. **Error patterns reveal system problems** - RPC rate limiting (429 errors) → need better error handling & backoff
 4. **First comprehensive reflection completed** - Analyzed 7 days of activity, extracted concrete insights
 5. **Pattern recognition enables behavior change** - Can't fix what you don't see
+6. **Know when to pivot** - Pump.fun direct integration: 60+ failures = clear signal to switch strategies
+7. **Boring reliability beats clever speed** - Jupiter (800ms, works) > pump.fun (300ms, 0% success)
+8. **Production needs proven infrastructure** - Undocumented APIs (pump.fun) are too risky vs. battle-tested (Jupiter)
+9. **Blockchain async is non-negotiable** - Signatures ≠ confirmation; must poll and wait for finality
+
+### Feb 14 Key Learnings (Pump.fun Sniping)
+1. **Market timing matters more than filters** - 513 tokens detected, 0 executed (100% rejection) → weekend market is garbage
+2. **Fresh launches need time to establish** - At 3s: no trading pairs exist | At 20s: still mostly $0 liquidity
+3. **RugCheck can't analyze brand-new tokens** - 64% API 400 errors on fresh launches → make it optional
+4. **Progressive filter tuning works** - Start conservative (score: 10), tune aggressive (score: 1) based on rejection data
+5. **Zero execution rate = wrong strategy** - After 500+ detections with 0 trades, pivot timing or target selection
+6. **Socials are good signal** - Only 2-3 tokens rejected for missing socials (not the bottleneck)
+7. **Quick scalp parameters validated** - TP: 25%, SL: 10%, 45s hold = good 2.5:1 risk/reward for sniping
+8. **Weekend vs. weekday quality difference** - Need to test US business hours (9am-4pm EST) for legitimate projects
+9. **Bonding curve vs. DEX matters** - Tokens on pump.fun bonding curve vs. graduated to Raydium need different price data sources
+10. **20s age optimal for bonding curve detection** - 5s = 21 detected | 20s = 36 detected (accounts need time to initialize)
+11. **Price data source must match token state** - DexScreener for graduated tokens (works) | On-chain deserialization for bonding curve (not implemented yet)
+12. **Remove arbitrary timeouts** - Better to wait for TP/SL targets than exit blindly at 45s
+13. **Test infrastructure before strategy** - 7 test trades all failed because price monitoring returned null (DexScreener can't track bonding curve)
 
 ---
 
