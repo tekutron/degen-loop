@@ -46,6 +46,16 @@
 - Risk management: Hard TP/SL limits prevent emotional decisions (+5% TP, -3% SL)
 - Entry criteria evolved: green candle + strong body (≥2%) + breakout above last 5 candles + volume spike (≥2x avg)
 
+### wickbot - Advanced Pattern Trading Bot (Feb 15-16)
+- **USDC-first strategy:** Hold stable USDC between trades, buy SOL on bullish signals, sell back to USDC on bearish (better risk management than holding volatile SOL)
+- **Signal-driven exits:** No fixed TP/SL percentages, exits based on bearish patterns + indicators (with safety caps: +25% max profit, -20% stop loss)
+- **Multi-timeframe analysis:** Scans 1m, 5m, 15m, 30m, 1h candles for pattern confirmation
+- **15 pattern detectors + 5 indicators:** Hammer, engulfing, three soldiers/crows, morning/evening star, doji, RSI, MACD, volume, moving averages, Bollinger Bands
+- **Trend confirmation required:** MA crossover filter (Price > MA20 > MA50 for buy) prevents counter-trend entries
+- **Optimized thresholds (Feb 16):** RSI 30/70 (classic TA, more extreme), min signal score 75 (selective entries), indicators 40% weight (trend matters)
+- **Pattern weights match TA reliability:** Strong patterns (three soldiers/crows, engulfing) = 88-95, weak patterns (spinning top) = 35-45
+- **Conservative by design:** Requires pattern + indicator + trend alignment for entry (expects 1-3 trades/day, 60-70% win rate)
+
 ### Pump Sniper Development (Feb 2026)
 - **Phase 1:** Built direct pump.fun bonding curve integration
   - Chose pump.fun > Jupiter (2-3x faster, ~300ms execution)
@@ -235,6 +245,13 @@
 11. **Price data source must match token state** - DexScreener for graduated tokens (works) | On-chain deserialization for bonding curve (not implemented yet)
 12. **Remove arbitrary timeouts** - Better to wait for TP/SL targets than exit blindly at 45s
 13. **Test infrastructure before strategy** - 7 test trades all failed because price monitoring returned null (DexScreener can't track bonding curve)
+14. **USDC-first > SOL-first for trading bots** - Holding stable base between trades eliminates idle exposure to SOL volatility; buy on bullish signals, sell to stable on bearish signals (better risk management)
+15. **Trend confirmation prevents counter-trend traps** - MA crossover filter (Price > MA20 > MA50 for buy) stops "catching falling knives"; golden/death cross detection essential
+16. **RSI 30/70 > RSI 40/60 for quality entries** - Classic TA levels (extreme oversold/overbought) filter out weak signals; more selective = higher win rate
+17. **Pattern weights matter** - Strong patterns (three soldiers/crows, engulfing) should dominate scoring over weak patterns (spinning tops, doji); match proven TA reliability
+18. **Indicators + Patterns + Trend = trinity** - All three must align for entry; conflicting signals = no trade (conservative approach prevents false entries)
+19. **Signal-driven exits > fixed TP/SL for pattern trading** - Let bearish patterns trigger exits naturally; use safety caps (+25% max, -20% stop) only for extremes
+20. **Dashboard UX matters** - Visual controls, real-time charts, and pattern markers make bots accessible; reduces cognitive load vs. terminal-only monitoring
 
 ---
 
