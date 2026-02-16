@@ -11,7 +11,14 @@
       "note": "Session end - stopped trading",
       "change_sol": 0.0,
       "change_pct": 0.0
+    },
+    {
+      "timestamp": "2026-02-13T02:40:00.000Z",
+      "balance_sol": 0.2823,
+      "note": "Mystery token position liquidated (D7USh... sold for small profit)",
+      "change_sol": 0.000265452,
+      "change_pct": 0.094
     }
   ],
-  "last_check": "2026-02-12T19:20:30.000Z"
+  "last_check": "2026-02-13T02:40:00.000Z"
 }

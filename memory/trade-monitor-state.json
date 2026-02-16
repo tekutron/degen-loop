@@ -1,14 +1,8 @@
 {
-  "lastCheck": "2026-02-12T18:58:30.000Z",
-  "currentTrade": null,
-  "lastExit": {
-    "symbol": "UNKNOWN",
-    "mint": "rGFtf6guxdwvDJJ34VqvYUnZ8ZJcPMEtoXBCdhJpump",
-    "exitReason": "TP",
-    "exitTime": "2026-02-12T18:58:14.728Z",
-    "entryPrice": 0.001139,
-    "exitPrice": 0.001239,
-    "pnl": 8.78,
-    "alerted": true
-  }
+  "lastCheck": "2026-02-13T02:45:30.000Z",
+  "lastTradeCount": 0,
+  "monitoredTrade": null,
+  "botStatus": "RUNNING",
+  "botPid": 8469,
+  "note": "Bot resumed 18:45 PST - waiting for quality tokens (0 currently passing filters)"
 }
