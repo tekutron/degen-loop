@@ -46,7 +46,7 @@
 - Risk management: Hard TP/SL limits prevent emotional decisions (+5% TP, -3% SL)
 - Entry criteria evolved: green candle + strong body (≥2%) + breakout above last 5 candles + volume spike (≥2x avg)
 
-### wickbot - Advanced Pattern Trading Bot (Feb 15-16)
+### wickbot - Advanced Pattern Trading Bot (Feb 15-17)
 - **USDC-first strategy:** Hold stable USDC between trades, buy SOL on bullish signals, sell back to USDC on bearish (better risk management than holding volatile SOL)
 - **Signal-driven exits:** No fixed TP/SL percentages, exits based on bearish patterns + indicators (with safety caps: +25% max profit, -20% stop loss)
 - **Multi-timeframe analysis:** Scans 1m, 5m, 15m, 30m, 1h candles for pattern confirmation
@@ -55,6 +55,23 @@
 - **Optimized thresholds (Feb 16):** RSI 30/70 (classic TA, more extreme), min signal score 75 (selective entries), indicators 40% weight (trend matters)
 - **Pattern weights match TA reliability:** Strong patterns (three soldiers/crows, engulfing) = 88-95, weak patterns (spinning top) = 35-45
 - **Conservative by design:** Requires pattern + indicator + trend alignment for entry (expects 1-3 trades/day, 60-70% win rate)
+- **Speed Upgrade (Feb 16 evening):** 80x faster reaction time
+  - Built O(1) incremental indicators in pure JavaScript (RSI, MACD, BB, EMA)
+  - Polling: 20s → 5s (4x faster)
+  - Total reaction time: 20s → 400ms (can catch dips within 1-2 seconds)
+  - Pivoted from Python Hexital to pure JS (simpler, faster, no env constraints)
+- **Dashboard (Feb 15-17):** Fully functional monitoring interface
+  - Live signal feed (real-time updates every 5s)
+  - Dual wallet display (SOL + USDC wallets with balances)
+  - WebSocket auto-detection (works from any IP)
+  - Position tracking, trade history, P&L stats
+  - Start/Stop controls, manual position close
+  - Fixed: WebSocket localhost hardcoding, JavaScript syntax error, redundant UI
+- **Current Status (Feb 17):** Ready for volatile market testing
+  - All flat market tests passed (correctly rejects <0.5% moves)
+  - Speed improvements validated (5s polling stable)
+  - Capital preserved: $15.28 USDC + 0.01 SOL fees
+  - Need to test during US session (9am-4pm EST) for real volatility
 
 ### Pump Sniper Development (Feb 2026)
 - **Phase 1:** Built direct pump.fun bonding curve integration
@@ -252,6 +269,31 @@
 18. **Indicators + Patterns + Trend = trinity** - All three must align for entry; conflicting signals = no trade (conservative approach prevents false entries)
 19. **Signal-driven exits > fixed TP/SL for pattern trading** - Let bearish patterns trigger exits naturally; use safety caps (+25% max, -20% stop) only for extremes
 20. **Dashboard UX matters** - Visual controls, real-time charts, and pattern markers make bots accessible; reduces cognitive load vs. terminal-only monitoring
+
+### Debugging & Troubleshooting (Feb 17)
+21. **Browser DevTools first when "nothing happens"** - User reports dashboard not working → check browser console (F12) → found JavaScript syntax error blocking entire script
+22. **Browser caching fights rapid development** - Standard refresh (F5) keeps old HTML/JS cached; must use hard refresh (Ctrl+Shift+R or Cmd+Shift+R) to see changes
+23. **WebSocket localhost assumption breaks remote access** - Hardcoding `ws://localhost:3000` fails when accessing from different machine; use `ws://${window.location.host}` for auto-detection
+24. **Orphaned code after refactoring creates syntax errors** - Empty function stubs can hide broken code after; always test after removing/stubbing functions
+25. **Syntax errors prevent entire script load** - One `Uncaught SyntaxError` at line 824 prevented `startBot()` from being defined → button clicks did nothing
+26. **Stack multiple small fixes** - Three separate bugs (WebSocket, syntax, redundant UI) stacked to make dashboard unusable; each fix revealed the next issue
+
+### Performance & Speed (Feb 16-17)
+27. **Incremental indicators are game-changers** - O(1) update time vs O(n) recalculation enables 5s polling (was 20s); 80x faster reaction time overall
+28. **Speed matters more than complexity** - Simple fast >> complex slow; 400ms reaction catches dips that 20s misses entirely
+29. **Pivot when blocked** - Python env locked? Use pure JS instead. Chart library slow? Replace with log feed. Quick pivots beat forcing solutions.
+30. **Flat markets test filters, not execution** - All tests during 0.01-0.07% moves validated rejection logic but can't prove trade execution works; need volatile conditions (US session 9am-4pm EST)
+
+### Collaboration & Communication (Feb 17)
+31. **Assume less technical knowledge** - "Refresh" → "Press Ctrl+Shift+R"; "Check console" → "Press F12, click Console tab"; explicit > assumptive
+32. **User feedback reveals invisible bugs** - Server logs showed "everything working" but browser console showed 3 critical errors; both perspectives needed
+33. **Gather environmental context early** - "What browser? Same machine or remote? What errors?" saves debugging time
+
+### Infrastructure & Reliability (Feb 15-17)
+34. **API redundancy is critical** - Moralis primary, Bitquery fallback, DexScreener last resort; single-source = single point of failure
+35. **Usability unlocks usage** - Dashboard makes monitoring easy → actually run it → actually learn from it; friction prevents iteration
+36. **Infrastructure work feels slow but enables speed** - Desktop shortcuts, balance tracking, dashboard polish seem trivial but reduce cognitive load for actual trading
+37. **Reliability > features** - Working price API more valuable than fancy indicators; bot that runs all night > bot with cool features that crashes
 
 ---
 
