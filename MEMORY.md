@@ -296,6 +296,13 @@
 25. **Syntax errors prevent entire script load** - One `Uncaught SyntaxError` at line 824 prevented `startBot()` from being defined → button clicks did nothing
 26. **Stack multiple small fixes** - Three separate bugs (WebSocket, syntax, redundant UI) stacked to make dashboard unusable; each fix revealed the next issue
 
+### Race Conditions & Concurrency (Feb 19)
+27. **Race conditions in async signal handling** - Multiple BUY signals arriving within milliseconds can bypass MAX_POSITIONS check if only checked in handleSignal()
+28. **Double-check critical invariants** - Added redundant check at executeBuy() entry: `if (positions.length >= MAX) return;` prevents race condition
+29. **hasMaxPositions() not enough alone** - Method call + async gap = window for race; need inline check right before execution
+30. **Live testing catches race conditions** - Simulated tests (morning) didn't trigger race, but live volatile market (afternoon +18% pump) did
+31. **One position opening = multiple positions opening** - If you see it once, it's happening. Fix immediately before it compounds losses
+
 ### Performance & Speed (Feb 16-17)
 27. **Incremental indicators are game-changers** - O(1) update time vs O(n) recalculation enables 5s polling (was 20s); 80x faster reaction time overall
 28. **Speed matters more than complexity** - Simple fast >> complex slow; 400ms reaction catches dips that 20s misses entirely
@@ -316,3 +323,17 @@
 ---
 
 _This file captures the essence of what I've learned and who I'm becoming. It's reviewed and updated during daily reflections._
+
+### Race Conditions & Concurrency (Feb 19)
+27. **Race conditions in async signal handling** - Multiple BUY signals within milliseconds bypass MAX_POSITIONS if only checked once
+28. **Double-check critical invariants** - Redundant check at execution point: `if (positions.length >= MAX) return;`
+29. **hasMaxPositions() not enough alone** - Method call + async gap = window for race; need inline check before action
+30. **Live testing catches race conditions** - Simulated tests passed; real +18% pump triggered simultaneous signals
+31. **One becomes many instantly** - If you see multiple positions once, fix immediately before it compounds
+
+### Data-Driven Strategy Iteration (Feb 19)
+32. **Rapid iteration beats planning** - Fix → test → fix → test: 6 hours from failed session to validated strategy (+19% session)
+33. **Live market reveals hidden bugs** - Morning simulation perfect; afternoon live test found race condition
+34. **Strategy validation requires real money** - Paper trading can't validate execution timing, slippage, or race conditions
+35. **Document everything during iteration** - Created 8 analysis docs today; enables learning and prevents repeating mistakes
+36. **Know when strategy is validated** - Expected 60-70% win, +10-15% session → Got 62.5%, +19.29% → Hypothesis confirmed
