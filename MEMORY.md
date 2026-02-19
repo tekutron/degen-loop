@@ -72,6 +72,24 @@
   - Speed improvements validated (5s polling stable)
   - Capital preserved: $15.28 USDC + 0.01 SOL fees
   - Need to test during US session (9am-4pm EST) for real volatility
+- **Custom Token Trading (Feb 18):** wickbot now supports ANY Solana token
+  - Built dynamic token switching via dashboard (input contract address → validates → applies)
+  - Strategy shift: Hold SOL → Buy TOKEN → Sell to SOL (instead of USDC-based)
+  - Generic swap() function handles any TOKEN/SOL pair via Jupiter
+  - Priority fee support: 0.001 SOL for faster execution (~$0.086/trade)
+  - Capital consolidated: 15.28 USDC → 0.197 SOL (total: 0.207 SOL / ~$17.80)
+- **Aggressive Scalping Mode (Feb 18):** Optimized to catch quick pumps
+  - **Problem:** Missed +16% CWIF pump because conservative settings required 67% confidence (4/6 conditions)
+  - **Solution:** Reduced to 50% confidence (3/6 conditions) + earlier RSI thresholds (35→45 dip, 65→55 top)
+  - **Implementation:** Made thresholds dynamic instead of hardcoded (`Math.ceil(count * confidence / 100)`)
+  - **Trade-off:** More trades + earlier entries vs. potentially more false signals
+  - **Lesson:** Conservative settings optimize for precision; aggressive settings optimize for recall
+- **API Resilience Lesson (Feb 18):** Birdeye API rate limit hit
+  - **Issue:** Free tier exhausted compute units after testing multiple tokens
+  - **Impact:** Bot can't initialize (needs 100 historical candles for indicators)
+  - **Alternatives identified:** DexScreener OHLCV, new Birdeye key, Coingecko, Helius RPC
+  - **Lesson:** Always have fallback data sources for critical dependencies
+  - **Status:** Bot code complete and ready; waiting for API access restoration
 
 ### Pump Sniper Development (Feb 2026)
 - **Phase 1:** Built direct pump.fun bonding curve integration
