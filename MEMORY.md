@@ -337,3 +337,23 @@ _This file captures the essence of what I've learned and who I'm becoming. It's 
 34. **Strategy validation requires real money** - Paper trading can't validate execution timing, slippage, or race conditions
 35. **Document everything during iteration** - Created 8 analysis docs today; enables learning and prevents repeating mistakes
 36. **Know when strategy is validated** - Expected 60-70% win, +10-15% session → Got 62.5%, +19.29% → Hypothesis confirmed
+
+### wickbot Comprehensive Analysis (Feb 19 Evening - 7:03 PM)
+37. **Edge validation requires volume** - Need 50-100 trades with new system to prove edge is real; afternoon session (62.5% win) promising but unproven
+38. **Premature exits killed win rate** - Signal-based exits exiting at +1% instead of waiting for +2-4% TP targets; fixed by switching to fixed TP/SL
+39. **Market timing matters for edge** - Evening/weekend = garbage quality; US trading hours (9am-1pm PST) likely needed for legitimate opportunities
+40. **Win rate tells incomplete story** - 29.6% overall BUT 62.5% with validated system; need to separate old bugs from new strategy performance
+41. **Capital growth math is brutal** - At +15.8% total over 54 trades = 0.29% per trade average; need sustained 50%+ win rate to grow meaningfully
+42. **Test-measure-decide framework** - 1 week test during US hours → 50-100 trades → objective analysis → scale/iterate/stop decision
+43. **Circuit breakers enable fearless testing** - Can test aggressively knowing system will auto-stop at 3 losses or 15% session drawdown
+44. **Comprehensive analysis reveals patterns** - Reviewed 7,000 lines code, 54 trades, 35 lessons → clear path forward: test during optimal hours with fixed system
+
+### Trade Analysis & Entry Filter Optimization (Feb 20 Afternoon - 2:30 PM)
+45. **Hold time reveals entry quality** - Trades under 30s: 42% win rate | 60-120s: 29% win rate → shorter holds = better entries, not luck
+46. **Perfect entries move instantly** - 7 QUICK_TP1 trades hit +2-3.5% in 1-4 seconds (100% win rate); bot CAN catch pumps when entry is strong
+47. **Weak entries stall completely** - 6 MAX_HOLD trades stalled for 60+ seconds, barely moved (-1.89% to +1.18%); these are bad entries, not bad exits
+48. **Two distinct behaviors prove filter problem** - Bot entering BOTH strong pumps (move in 1-4s) AND weak bounces (stall 60s+); need tighter entry filters
+49. **Exit strategy already optimal** - QUICK_TP1 at +2% has 100% win rate; don't change what works, fix what doesn't (entry quality)
+50. **Tighter filters = fewer bad entries** - Increased MIN_MOMENTUM_1M (1%→2%), MIN_MOMENTUM_5M (0.5%→1%), MIN_VOLUME_RATIO (2x→3x) to catch only strong pumps
+51. **Position stuck indicates process issues** - Position held 17+ minutes (should exit at 60s); likely bot crash/freeze, need better monitoring and logging
+52. **Analysis-driven changes beat intuition** - Data clearly showed entry quality problem, not exit timing; measuring actual trade behavior reveals root causes
