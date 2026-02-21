@@ -357,3 +357,13 @@ _This file captures the essence of what I've learned and who I'm becoming. It's 
 50. **Tighter filters = fewer bad entries** - Increased MIN_MOMENTUM_1M (1%→2%), MIN_MOMENTUM_5M (0.5%→1%), MIN_VOLUME_RATIO (2x→3x) to catch only strong pumps
 51. **Position stuck indicates process issues** - Position held 17+ minutes (should exit at 60s); likely bot crash/freeze, need better monitoring and logging
 52. **Analysis-driven changes beat intuition** - Data clearly showed entry quality problem, not exit timing; measuring actual trade behavior reveals root causes
+
+### The Tighter Filters Paradox (Feb 20 Afternoon - 3:30 PM)
+53. **Tighter filters caught pumps TOO LATE** - 2% momentum + 3x volume = phase 3 (peak), not phase 1-2 (growth); performance got WORSE (-2.33% vs -1.87%)
+54. **Lagging indicators show what already happened** - By the time momentum/volume signal fires, pump is peaking; bot was buying tops, hitting SL in 2-3s
+55. **Leading indicators predict what will happen** - RSI <45 predicts bounce coming, MACD crossover confirms momentum building BEFORE price moves significantly
+56. **The paradox of stronger signals** - Tighter filters = stronger signals = later in pump cycle = buying tops = immediate reversals
+57. **Pivot quickly when data shows failure** - 7 trades proved filters made it worse; don't double down, switch approaches immediately
+58. **Use indicators for PREDICTION not CONFIRMATION** - Bot had RSI + MACD all along but used them to confirm pumps (after), not predict them (before)
+59. **Enter phase 1-2, not phase 3** - Pumps peak at 2%+ momentum; need to enter at 0.5% momentum (early) with RSI/MACD predicting continuation
+60. **Token quality matters more than strategy** - Komomo down 73% in 1h; can't scalp a collapsing token no matter how good the strategy

@@ -4,20 +4,25 @@
     "calendar": null,
     "weather": null,
     "moltbook": null,
-    "trading": 1771626917000
+    "trading": 1771631634000
   },
   "lastReflection": 1771544520000,
   "wickbot": {
     "lastComprehensiveAnalysis": 1771558628000,
     "lastTradeAnalysis": 1771626917000,
-    "status": "filters_tightened",
-    "nextMilestone": "20_trades_validation",
+    "lastStrategyPivot": 1771631634000,
+    "status": "leading_indicators_pivot",
+    "nextMilestone": "10_trades_validation",
     "testingWindow": "US_hours_9am_1pm_PST",
-    "currentCapital": 0.0793,
-    "entryFilters": {
-      "momentum1m": "2.0%",
-      "momentum5m": "1.0%",
-      "volumeRatio": "3.0x",
+    "currentCapital": 0.0731,
+    "entryStrategy": {
+      "type": "leading_indicators",
+      "rsi_max": 45,
+      "rsi_min": 25,
+      "macd_crossover": "required",
+      "momentum_1m": "0.5%",
+      "momentum_5m": "0.3%",
+      "volume_ratio": "1.5x",
       "appliedDate": "2026-02-20"
     }
   }
