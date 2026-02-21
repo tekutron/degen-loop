@@ -78,6 +78,33 @@
   - Generic swap() function handles any TOKEN/SOL pair via Jupiter
   - Priority fee support: 0.001 SOL for faster execution (~$0.086/trade)
   - Capital consolidated: 15.28 USDC → 0.197 SOL (total: 0.207 SOL / ~$17.80)
+- **MOMENTUM Strategy (Feb 20 - CURRENT):** Major pivot from dip-buying to pump-catching
+  - **Critical Bug Fixed:** Race condition in balance updates (transaction signatures ≠ confirmation)
+    - Problem: updateCapitalFromChain() called before swap finalized, read stale balance
+    - Result: Phantom -75% loss triggered circuit breaker
+    - Fix: await confirmTransaction() + 500ms buffer before balance check
+    - Impact: Bot now reliable, no more phantom losses
+  - **Strategy Evolution:** Complex patterns → RSI/MACD (buggy) → Multi-strategy system → MOMENTUM
+  - **Current Config:**
+    - Entry: Price UP 1.5-15% (catch pumps in progress)
+    - Exit: TP1 +2%, TP2 +4%, SL -2%, Max Hold 60s
+    - Position: 75% capital per trade (high risk, user choice)
+    - Fee: 0.00005 SOL priority (optimized, 50% reduction)
+  - **Performance:** Trade #79: +2.02% in 55s (validates approach)
+  - **Status:** Active, monitoring, needs more data
+  - **Next:** Consider trailing stop or momentum-based exit to ride pumps higher
+  - **Capital:** 0.0634 SOL (~$12.69) as of Feb 20 8:20 PM
+- **5 Strategies Available:**
+  1. MOMENTUM (active) - Catch pumps 1.5-15%
+  2. Hybrid - Dip + volume + crash filter (needs code implementation)
+  3. Simple - Basic dip detection (GitHub proven)
+  4. Volume - Volume spike focused (conservative)
+  5. RSI - Leading indicators (bug fixed, ready but untested)
+- **All Documentation Current (Feb 20 8:20 PM):**
+  - Git: 7 commits, all pushed (da52f1c → 61560ff)
+  - Files: STRATEGY-STATUS, BUG-FIX-COMPLETE, BUG-INVESTIGATION, CURRENT-STATUS
+  - Dashboard: Updated to show MOMENTUM strategy
+  - Memory: Session fully documented in memory/2026-02-20.md
 - **Aggressive Scalping Mode (Feb 18):** Optimized to catch quick pumps
   - **Problem:** Missed +16% CWIF pump because conservative settings required 67% confidence (4/6 conditions)
   - **Solution:** Reduced to 50% confidence (3/6 conditions) + earlier RSI thresholds (35→45 dip, 65→55 top)
@@ -367,3 +394,37 @@ _This file captures the essence of what I've learned and who I'm becoming. It's 
 58. **Use indicators for PREDICTION not CONFIRMATION** - Bot had RSI + MACD all along but used them to confirm pumps (after), not predict them (before)
 59. **Enter phase 1-2, not phase 3** - Pumps peak at 2%+ momentum; need to enter at 0.5% momentum (early) with RSI/MACD predicting continuation
 60. **Token quality matters more than strategy** - Komomo down 73% in 1h; can't scalp a collapsing token no matter how good the strategy
+
+### Critical Bug & Multi-Strategy Pivot (Feb 20 Evening - 4:45-6:00 PM)
+61. **Always verify code is actually executing** - RSI/MACD filters had 0% win rate over 7 trades; checked logs, found ZERO filter messages → filters never ran
+62. **Zero improvement after "fix" = investigate immediately** - 7 trades with identical failure pattern after "strategy change" was smoking gun
+63. **API assumptions are dangerous** - Code checked `indicators.ready` property, but `getIndicators()` returned object without `.ready` (had `isReady()` method instead)
+64. **One line can invalidate entire strategy** - Missing `.ready` property meant entire RSI/MACD filter block skipped; all 7 trades used old broken logic
+65. **Log everything during development** - If filter code had logged "RSI check: PASS" or "RSI check: FAIL", would have caught bug in first trade, not seventh
+66. **Simple beats complex in production** - GitHub research: 5 top Solana bots use % dip detection, NOT complex indicators; proven pattern > clever theory
+67. **Multi-strategy approach enables systematic testing** - Implemented 4 modes (simple/volume/hybrid/rsi); can A/B test all approaches instead of committing to one
+68. **Default to proven patterns** - Hybrid strategy (dip + volume + crash filter) based on actual working bots; RSI/MACD relegated to experimental mode
+69. **Test incrementally when testing unproven strategy** - Should have checked after 2-3 trades (15 minutes), not 7 trades (40 minutes + -1.5% capital)
+70. **Wasted capital teaches expensive lessons** - Lost 25.78% capital in one day testing broken strategies; every untested trade is a bet, not an experiment
+
+### Race Condition Bug Fix (Feb 20 Evening - 7:00-7:30 PM)
+71. **Blockchain async is non-negotiable** - Transaction signatures ≠ confirmation; must await finality before reading dependent state
+72. **Balance race conditions cause phantom losses** - Reading balance immediately after swap, before tx confirmed, shows stale data (tokens gone, SOL not arrived)
+73. **Always wait for confirmTransaction()** - Add 500ms buffer after confirmation for RPC node propagation; prevents reading mid-transaction state
+74. **Sanity checks catch impossible changes** - Detecting >50% balance swings in one update saved us; add retry logic for suspicious data
+75. **Debug logging is mandatory for async operations** - `[DEBUG]` messages at every step revealed exact failure point; without logs, bug would be impossible to diagnose
+76. **Circuit breakers work when fed correct data** - Bot stopped on phantom -75% loss (working correctly); problem was bad input, not bad logic
+77. **One bug can look like total system failure** - -75% phantom loss felt catastrophic; actual capital was safe, just reporting issue
+
+### MOMENTUM Strategy Discovery (Feb 20 Evening - 6:44-8:20 PM)
+78. **Dip-buying doesn't work on pumping tokens** - Trying to buy dips on momentum tokens means waiting forever or entering dumps
+79. **Catch pumps, not dips** - Pivoted from "buy -2.5% dip" to "buy +1.5% pump"; fundamentally different philosophy works better for volatile low-caps
+80. **Entry: 1.5-15% pump range** - <1.5% = noise, >15% = already topped; sweet spot is early-mid pump phase
+81. **Fixed TP/SL works for momentum** - TP1 +2%, TP2 +4%, SL -2%, Max 60s captures quick wins without bagholding
+82. **Momentum strategy showing promise** - Trade #79: +2.02% in 55s (QUICK_TP1); validates approach of catching pumps early
+83. **Need to ride pumps higher** - Fixed TP at +2% leaves money on table; explore trailing stop, tiered exits, or momentum-based exit
+84. **5 strategies documented and ready** - momentum (active), hybrid, simple, volume, rsi; can switch/test as needed
+85. **Strategy evolution is iterative** - Complex patterns → tightened filters → leading indicators (buggy) → multi-strategy → momentum; each failure teaches
+86. **Document everything during iteration** - Created 8 docs today (bug investigation, fix, strategy status); enables learning and prevents repeating mistakes
+87. **Session timeout kills processes** - nohup not enough in some environments; need systemd service for permanent deployment
+88. **Git commits preserve progress** - 6 commits today with clear messages; can always roll back or understand what changed
