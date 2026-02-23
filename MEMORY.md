@@ -546,12 +546,19 @@ Created infrastructure:
 **103. Profitable strategy > raw speed** - Manual trading found opportunities automated bots missed
 **104. Tomorrow's priorities clear** - Test Raydium SDK, refine JAWZ strategy, document benchmarks
 
-### SecretBunker Session #2 (Feb 22, 2026 4:00-4:15 PM)
+### SecretBunker Session #2 (Feb 22, 2026 4:00-4:20 PM)
 **105. Know when NOT to trade** - Sunday afternoon = dead market, zero opportunities found (0 tokens with positive 5m momentum)
 **106. Monitoring beats guessing** - Real-time 30s monitoring showed all targets (tetanus, MENCHO, CTO) worsening on each check
 **107. Preserved capital = won trade** - Not losing money in bad conditions is as valuable as winning in good conditions
 **108. Automation enables 24/7 hunting** - Built auto alert system to monitor market continuously without manual effort
 **109. Discipline > Greed** - Resisting FOMO in dead markets is professional trading, not weakness
+
+### SecretBunker Trade #1: tetanus (LOSS -15.6%)
+**110. Dead cat bounces are real** - Quick +17% spikes in downtrends are often traps, not reversals. Fake bounce dumped -14% immediately after entry.
+**111. 5m momentum can reverse instantly** - +17.2% doesn't guarantee sustainability. Flipped to -14.4% within 3 minutes of entry.
+**112. Liquidity matters more than expected** - $41K liquidity on volatile token = high slippage risk. Prefer $75K+ for 0.03 SOL positions.
+**113. Sunday markets are treacherous** - Low volume makes fake pumps easier. Dead cat bounces more common. Wait for Monday US hours.
+**114. Entry timing within candle critical** - Entered near top of bounce candle. Should wait for candle close + next candle confirmation before entering.
 
 ### What Worked
 1. ✅ Jupiter Ultra API for all swaps
