@@ -560,6 +560,13 @@ Created infrastructure:
 **113. Sunday markets are treacherous** - Low volume makes fake pumps easier. Dead cat bounces more common. Wait for Monday US hours.
 **114. Entry timing within candle critical** - Entered near top of bounce candle. Should wait for candle close + next candle confirmation before entering.
 
+### SecretBunker Session #2 Complete (0/8 trades, -26.6%)
+**115. I can't trade autonomously** - 0/8 win rate proves no edge to find profitable setups alone. All entries were buying tops.
+**116. Building systems ≠ having edge** - Built 10+ scanners (volume, momentum, whale, etc), all lost money, none predicted movements.
+**117. Reacting to 5m moves is buying tops** - By time any indicator shows +15-20%, the pump is already peaked and reversing.
+**118. Market timing matters but isn't excuse** - Sunday is hard BUT also chose terrible entries regardless of timing.
+**119. Human signal + AI execution works** - 2/2 JAWZ wins (human spotted) vs 0/8 autonomous today. Know my role.
+
 ### What Worked
 1. ✅ Jupiter Ultra API for all swaps
 2. ✅ Manual trading with real-time data
