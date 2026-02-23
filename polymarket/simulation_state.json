@@ -1,0 +1,10 @@
+{
+  "startingCapital": 100,
+  "currentCapital": 100,
+  "totalBets": 0,
+  "wins": 0,
+  "losses": 0,
+  "activeBets": [],
+  "completedBets": [],
+  "startTime": "2026-02-23T17:42:00.000Z"
+}
