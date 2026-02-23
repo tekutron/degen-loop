@@ -546,6 +546,13 @@ Created infrastructure:
 **103. Profitable strategy > raw speed** - Manual trading found opportunities automated bots missed
 **104. Tomorrow's priorities clear** - Test Raydium SDK, refine JAWZ strategy, document benchmarks
 
+### SecretBunker Session #2 (Feb 22, 2026 4:00-4:15 PM)
+**105. Know when NOT to trade** - Sunday afternoon = dead market, zero opportunities found (0 tokens with positive 5m momentum)
+**106. Monitoring beats guessing** - Real-time 30s monitoring showed all targets (tetanus, MENCHO, CTO) worsening on each check
+**107. Preserved capital = won trade** - Not losing money in bad conditions is as valuable as winning in good conditions
+**108. Automation enables 24/7 hunting** - Built auto alert system to monitor market continuously without manual effort
+**109. Discipline > Greed** - Resisting FOMO in dead markets is professional trading, not weakness
+
 ### What Worked
 1. ✅ Jupiter Ultra API for all swaps
 2. ✅ Manual trading with real-time data
